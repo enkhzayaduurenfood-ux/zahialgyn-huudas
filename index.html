@@ -68,7 +68,10 @@ main{padding:20px 0 80px}
 .ocard{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;cursor:pointer;box-shadow:var(--shadow)}
 .ocard:hover{border-color:var(--accent)}
 .ocard .no{font-family:"Roboto Condensed";font-weight:700;font-size:18px;min-width:110px}
-.ocard .models{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.ocard .models{display:grid;gap:6px;margin-top:6px}
+.srow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.oact{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+@media (max-width:640px){.oact{align-items:flex-start;flex-direction:row}}
 @media (max-width:640px){.ocard{grid-template-columns:1fr}}
 
 /* Editor */
@@ -346,8 +349,9 @@ function ordersHtml(){
   if(!groups.length) h+='<div class="panel muted">Захиалга алга. "+ Шинэ захиалга" дарж эхлүүлнэ үү.</div>';
   h+='<div class="olist">'+groups.map(function(o){
     return '<div class="ocard" data-open="'+esc(o.orderNo)+'"><div class="no">№ '+esc(o.orderNo)+'</div><div><div><b>'+esc(o.customer||'—')+'</b> <span class="muted">· хүлээж авсан '+esc(o.recvDate||'—')+' · өгөх '+esc(o.dueDate||'—')+'</span></div><div class="models">'+
-      o.sheets.map(function(s){ return '<span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+(s.sent?'Үйлдвэрт':'Алхам '+s.step)+' · '+s.total+'ш</span>'; }).join('')+
-      '</div></div><div class="muted" style="font-size:13px">'+o.sheets.length+' хуудас</div></div>';
+      o.sheets.map(function(s){ return '<div class="srow"><span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+(s.sent?'Үйлдвэрт илгээсэн':'Алхам '+s.step)+' · '+s.total+'ш</span>'+
+        (s.sent&&s.factoryToken?'<button class="btn sm" data-cl="fac" data-id="'+esc(s.id)+'">Үйлдвэрийн линк</button><button class="btn sm" data-cl="view" data-id="'+esc(s.id)+'">Харах</button>':'<span class="muted" style="font-size:12px">үйлдвэрт илгээгээгүй</span>')+'</div>'; }).join('')+
+      '</div></div><div class="oact"><button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
   }).join('')+'</div>';
   return h;
 }
@@ -355,6 +359,8 @@ function bindOrders(){
   $('#oq').oninput=function(e){ S.filter.q=e.target.value; var p=e.target.selectionStart; render(); var i=$('#oq'); i.focus(); i.setSelectionRange(p,p); };
   $$('[data-st]').forEach(function(b){ b.onclick=function(){ S.filter.st=b.getAttribute('data-st'); render(); }; });
   $$('[data-open]').forEach(function(c){ c.onclick=function(){ openOrder(c.getAttribute('data-open')); }; });
+  $$('[data-cl]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); var s=S.list.filter(function(x){ return x.id===b.getAttribute('data-id'); })[0]; if(!s) return; var k=b.getAttribute('data-cl');
+    if(k==='cust') copy(custUrl(s)); else if(k==='fac') copy(factoryUrl(s)); else window.open(factoryUrl(s),'_blank'); }; });
   $('#newOrder').onclick=newOrderModal;
 }
 function newOrderModal(){
