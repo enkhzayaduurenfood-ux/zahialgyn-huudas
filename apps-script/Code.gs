@@ -24,7 +24,7 @@ var CATALOG_HEADERS = ['Ангилал', 'Код', 'Тодорхойлолт', '
 var LOG_HEADERS = ['Огноо', 'Хэн', 'Захиалгын №', 'Хуудас ID', 'Үйлдэл', 'Тэмдэглэл'];
 
 // Захиалагч засаж болох талбарууд (ZH хэсэг)
-var CUSTOMER_KEYS = ['customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
+var CUSTOMER_KEYS = ['modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
   'khav', 'soilt', 'logo', 'tsats', 'halaas', 'dotor', 'people', 'custNote', 'zhSigns'];
 var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate'];
 var STEPS = ['Захиалга хүлээн авах', 'Захиалгын мэдээлэл нягтлах', 'Захиалгын хуудас бөглөх', 'Захиалга баталгаажуулах', 'Эх загвар, скиз баталгаажуулах'];
@@ -147,7 +147,7 @@ function bootData_(p) {
   if (p.v === 'c' && p.t) {
     var list = sheetsByCustToken_(p.t);
     if (!list.length) return { mode: 'error', error: 'Захиалга олдсонгүй.' };
-    return { mode: 'customer', base: base, token: p.t, sheets: list, title: 'Захиалга ' + list[0].orderNo };
+    return { mode: 'customer', base: base, token: p.t, sheets: list, catalog: allCatalog_(), title: 'Захиалга ' + list[0].orderNo };
   }
   if (p.k && p.k === adminKey_()) {
     return { mode: 'admin', base: base, key: p.k, list: listSheets_(), catalog: allCatalog_(), settings: settings_(), steps: STEPS, title: 'Захиалгын хуудас — удирдлага' };

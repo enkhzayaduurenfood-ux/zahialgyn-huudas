@@ -25,7 +25,7 @@ textarea{min-height:64px;resize:vertical}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
 input[type=checkbox]{width:auto;min-height:0}
 label.f{display:block;font-size:12.5px;color:var(--muted);margin:0 0 4px;font-weight:500}
-.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:#fff;border-radius:6px;padding:8px 14px;cursor:pointer;min-height:38px;white-space:nowrap;font-weight:500}
+.btn{text-decoration:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);background:#fff;border-radius:6px;padding:8px 14px;cursor:pointer;min-height:38px;white-space:nowrap;font-weight:500}
 .btn:hover{background:#f6f7f6}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.pri:hover{filter:brightness(1.08)}
@@ -85,6 +85,15 @@ main{padding:20px 0 80px}
 .stepper button.cur{background:var(--accent);color:#fff;border-color:var(--accent)}
 .stepper button.cur b{color:#cfe0f5}
 .stepper button.skip{opacity:.45}
+.ptabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:4px 0 18px}
+.ptabs button{border:1px solid var(--line2);background:#fff;border-radius:8px;padding:10px 12px;text-align:left;cursor:pointer}
+.ptabs button b{display:block;font-family:"Roboto Condensed";font-size:16px}
+.ptabs button small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.ptabs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ptabs button.on small{color:#d4e2f4}
+@media (max-width:640px){.ptabs{grid-template-columns:1fr}}
+.stepsel{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.stepsel select{width:auto;min-height:32px;padding:4px 8px}
 .sec{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow)}
 .sec>summary{list-style:none;cursor:pointer;padding:12px 16px;display:flex;align-items:center;gap:10px;font-family:"Roboto Condensed";font-weight:700;font-size:15.5px}
 .sec>summary::-webkit-details-marker{display:none}
@@ -217,7 +226,7 @@ var DEFAULT_SIGNS = {made:'Д. Алтангэрэл', checked:'Н. Мөнх-Эр
 
 /* ================= Туслах ================= */
 var S = { mode: BOOT.mode, tab:'orders', list: BOOT.list||[], catalog: BOOT.catalog||[], settings: BOOT.settings||{},
-  order:null, sheets:[], cur:0, pending:{}, saving:false, saveTimer:null, status:'', filter:{q:'',st:'all'}, cfilter:{q:'',cat:''} };
+  order:null, sheets:[], cur:0, etab:'a', pending:{}, saving:false, saveTimer:null, status:'', filter:{q:'',st:'all'}, cfilter:{q:'',cat:''} };
 var AUTH = BOOT.mode==='admin' ? {k:BOOT.key} : BOOT.mode==='customer' ? {t:BOOT.token} : {};
 function who(){ try{ return localStorage.getItem('zh_name')||''; }catch(e){ return ''; } }
 function setWho(v){ try{ localStorage.setItem('zh_name',v); }catch(e){} }
@@ -392,24 +401,26 @@ function editorHtml(){
   h+='<div class="mtabs">'+S.sheets.map(function(x,i){ return '<button data-mt="'+i+'" class="'+(i===S.cur?'on':'')+'">'+esc(x.data.modelCode||('Загвар '+(i+1)))+(x.sent?' ✓':'')+'</button>'; }).join('')+
     '<button id="addSheet" class="btn ghost sm" style="margin:4px 0 0 4px">+ Загвар нэмэх</button></div>';
   if(s.sent) h+='<div class="rev" style="margin:0 0 14px">'+(admin?'Энэ хуудас <b>'+esc(s.sent)+'</b>-нд үйлдвэрт илгээгдсэн. Засвар хийвэл хадгалахдаа юу өөрчилснөө тайлбарлана. Үйлдвэрийн линк шинэчлэгдэнэ.':'Энэ хуудас үйлдвэрт илгээгдсэн тул зөвхөн харах боломжтой.')+'</div>';
-  if(admin){
-    h+='<div class="stepper">'+STEPS.map(function(t,i){ var n=i+1, cls=n<(d.step||1)?'done':n===(d.step||1)?'cur':''; if(n===5&&!d.isNew) cls+=' skip'; return '<button data-step="'+n+'" class="'+cls+'"><b>'+n+'-р алхам'+(n===5?' · шинэ загвар үед':'')+'</b>'+t+'</button>'; }).join('')+'</div>';
-  }
+  var tabs=[['a','1. Захиалагч','Захиалга хүлээн авах · захиалагч, борлуулалтын менежер'],['b','2. Захиалгын дэлгэрэнгүй','Мэдээлэл нягтлах · борлуулалтын менежер, үйлдвэрийн дарга']];
+  if(admin) tabs.push(['c','3. Дизайнер','Хуудас бөглөх, баталгаажуулах, скиз · дизайнер']);
+  if(!admin&&S.etab==='c') S.etab='a';
+  h+='<div class="ptabs">'+tabs.map(function(t){ return '<button data-et="'+t[0]+'" class="'+(S.etab===t[0]?'on':'')+'"><b>'+t[1]+'</b><small>'+t[2]+'</small></button>'; }).join('')+'</div>';
+  if(admin) h+='<div class="stepsel" style="margin:-8px 0 14px">Одоогийн алхам: <select data-k="step">'+STEPS.map(function(t,i){ return '<option value="'+(i+1)+'"'+((d.step||1)==i+1?' selected':'')+'>'+(i+1)+'. '+t+(i===4?' (шинэ загвар үед)':'')+'</option>'; }).join('')+'</select></div>';
+  SECN=0;
   h+='<fieldset style="border:0;padding:0;margin:0" '+(lock?'disabled':'')+'>';
-  h+='<div class="grouphead">Захиалагч, борлуулалтын менежер бөглөнө</div>';
-  h+=secGeneral(d)+secPhotos(d)+secColors(d)+secSizes(d)+secOpt('khav',d,4)+secOpt('soilt',d,5)+secLogo(d)+secOpt('tsats',d,7)+secOpt('halaas',d,8)+secOpt('dotor',d,9)+secPeople(d);
-  if(admin){
-    h+='<div class="grouphead">Дизайнер бөглөнө</div>';
-    h+=secModel(d)+secOrts(d)+secTpl(d)+secAux(d)+secMat(d)+secSigns(d);
-    h+='<div class="row mt"><button class="btn danger" id="delSheet">Энэ загварын хуудсыг устгах</button></div>';
-  }
+  if(S.etab==='a') h+=secGeneral(d)+secModelPick(d)+secColors(d)+secLogo(d)+secPeople(d);
+  else if(S.etab==='b') h+=secSizes(d)+secOpt('khav',d)+secOpt('soilt',d)+secOpt('tsats',d)+secOpt('halaas',d)+secOpt('dotor',d)+secSalesNote(d);
+  else { h+=secModel(d)+secOrts(d)+secTpl(d)+secAux(d)+secMat(d)+secSigns(d); h+='<div class="row mt"><button class="btn danger" id="delSheet">Энэ загварын хуудсыг устгах</button></div>'; }
+  var idx=tabs.map(function(t){return t[0];}).indexOf(S.etab);
+  h+='<div class="row mt">'+(idx>0?'<button class="btn" data-et="'+tabs[idx-1][0]+'">← '+tabs[idx-1][1]+'</button>':'')+'<span class="sp"></span>'+(idx<tabs.length-1?'<button class="btn pri" data-et="'+tabs[idx+1][0]+'">'+tabs[idx+1][1]+' →</button>':'')+'</div>';
   h+='</fieldset>';
   return h;
 }
 function inp(path,val,attrs){ return '<input data-k="'+path+'" value="'+esc(val==null?'':val)+'" '+(attrs||'')+'>'; }
 function sel(path,val,opts,empty){ return '<select data-k="'+path+'"><option value="">'+(empty||'—')+'</option>'+opts.map(function(o){ return '<option'+(o===val?' selected':'')+'>'+esc(o)+'</option>'; }).join('')+'</select>'; }
 function field(label,html){ return '<div><label class="f">'+label+'</label>'+html+'</div>'; }
-function sec(n,title,body,open){ return '<details class="sec" '+(open===false?'':'open')+'><summary><span class="n">'+n+'</span>'+title+'</summary><div class="body">'+body+'</div></details>'; }
+var SECN=0;
+function sec(n,title,body,open){ SECN++; return '<details class="sec" '+(open===false?'':'open')+'><summary><span class="n">'+SECN+'</span>'+title+'</summary><div class="body">'+body+'</div></details>'; }
 
 function secGeneral(d){
   return sec(1,'Ерөнхий мэдээлэл','<div class="grid g3">'+field('Захиалагч байгууллага',inp('customer',d.customer))+field('Захиалга өгсөн / хүлээж авсан огноо',inp('recvDate',d.recvDate,'type="date"'+(isCust()?' disabled':'')))+field('Захиалга авах / хүлээлгэн өгөх огноо',inp('dueDate',d.dueDate,'type="date"'))+'</div>'+
@@ -434,13 +445,13 @@ function secSizes(d){
 function secOpt(key,d,n){
   var o=OPT[key], v=d[key]||{};
   var body='<table class="t"><tr><th>Байрлал</th><th>Төрөл</th><th>Тайлбар</th></tr>'+o.pos.map(function(p){ var x=v[p]||{}; return '<tr><td style="width:24%">'+p+'</td><td style="width:30%">'+sel(key+'.'+p+'.type',x.type,o.types)+'</td><td>'+inp(key+'.'+p+'.note',x.note)+'</td></tr>'; }).join('')+'</table>';
-  return sec({khav:8,soilt:9,tsats:11,halaas:12,dotor:13}[key]||n,o.title,body,false);
+  return sec(0,o.title,body);
 }
 function secLogo(d){
   var v=d.logo||{};
   var body=POS4.map(function(p){ var x=v[p]||{}; return '<div class="panel" style="padding:12px;margin-bottom:10px;box-shadow:none"><h3>'+p+'</h3><div class="grid g4">'+field('Төрөл',sel('logo.'+p+'.type',x.type,LOGO_TYPES))+field('Өнгө',inp('logo.'+p+'.color',x.color))+field('Хэмжээ (см, урт×өндөр)',inp('logo.'+p+'.size',x.size))+field('Тайлбар',inp('logo.'+p+'.note',x.note))+'</div><div class="mt">'+field('Логоны файл / зураг',thumbsHtml(x.imgs,'logo.'+p+'.imgs',true,'Лого · '+p))+'</div></div>'; }).join('');
   body+='<p class="muted" style="font-size:12.5px;margin:4px 0 0">Хатгамал — шууд материал дээр оёно. Бэлдэц — хатгамлыг бүтээгдэхүүн дээр тавьж оёно. Хэвлэл/наалт — хуулардаггүй будган наалт.</p>';
-  return sec(10,'Лого',body,false);
+  return sec(0,'Лого',body);
 }
 function secPeople(d){
   var p=d.people||[];
@@ -448,14 +459,22 @@ function secPeople(d){
     p.map(function(x,i){ return '<tr><td>'+(i+1)+'</td><td>'+inp('people.'+i+'.last',x.last)+'</td><td>'+inp('people.'+i+'.first',x.first)+'</td><td>'+inp('people.'+i+'.phone',x.phone)+'</td><td style="width:80px"><select data-k="people.'+i+'.gender"><option></option><option'+(x.gender==='Эр'?' selected':'')+'>Эр</option><option'+(x.gender==='Эм'?' selected':'')+'>Эм</option></select></td><td style="width:80px">'+inp('people.'+i+'.height',x.height)+'</td><td style="width:80px">'+inp('people.'+i+'.weight',x.weight)+'</td><td style="width:110px">'+inp('people.'+i+'.size',x.size)+'</td><td><button class="btn ghost sm" data-rm="people" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
     '</table></div><button class="btn sm mt" data-add="people">+ Хүн нэмэх</button>'+
     '<div class="mt">'+field('Захиалагчийн нэмэлт тэмдэглэл','<textarea data-k="custNote">'+esc(d.custNote||'')+'</textarea>')+'</div>';
-  return sec(15,'Хэмжээний жагсаалт ба тэмдэглэл',body,false);
+  return sec(0,'Хүмүүсийн хэмжээ ба тэмдэглэл',body,false);
 }
+var FLIPBOOK='https://heyzine.com/flip-book/752b2082bf.html';
+function modelCard(d){
+  var c=catFind(d.modelCode,d.modelCat), pic=c&&(c.front[0]||c.back[0]);
+  return '<div class="model-pick">'+(pic?'<img src="'+img(pic,200)+'" data-mpic>':'<div style="width:72px;height:72px;border-radius:6px;background:#e9ebe9"></div>')+
+    '<div class="sp"><div class="cond" style="font-size:18px;font-weight:700">'+esc(d.modelCode||'Загвар сонгоогүй')+'</div><div class="muted" style="font-size:13px">'+esc(c?c.desc:'Code каталогоос сонгох, эсвэл каталог номноос кодоо хараад доор бичнэ')+'</div>'+(c&&c.ulger?'<div style="font-size:12.5px;margin-top:2px"><b>Үлгэр:</b> '+esc(c.ulger)+'</div>':'')+'</div>'+
+    '<div class="row" style="gap:6px"><button class="btn pri" id="pickModel">Code-оос сонгох</button><a class="btn" href="'+FLIPBOOK+'" target="_blank" rel="noopener">Каталог ном үзэх ↗</a></div></div>';
+}
+function secModelPick(d){
+  return sec(0,'Загвар сонгох, зураг',modelCard(d)+'<div class="grid g2 mt">'+field('Загварын код (каталог номноос харж бичиж болно)',inp('modelCode',d.modelCode))+'<div></div></div>'+
+    '<div class="mt"><label class="f">Загварын зураг, жишээ зураг (үйлдвэрт томоор харагдана)</label>'+thumbsHtml(d.photos,'photos',true,'Загварын зураг')+'</div>');
+}
+function secSalesNote(d){ return sec(0,'Нэмэлт мэдээлэл, тэмдэглэл','<textarea data-k="salesNote" placeholder="Хавчуурга, сойлт, размер, халаас, доторын талаар нэмэлт тайлбар…">'+esc(d.salesNote||'')+'</textarea>'); }
 function secModel(d){
-  var c=catFind(d.modelCode,d.modelCat);
-  var pic=c&&(c.front[0]||c.back[0]);
-  var body='<div class="model-pick">'+(pic?'<img src="'+img(pic,200)+'">':'<div style="width:72px;height:72px;border-radius:6px;background:#e9ebe9"></div>')+
-    '<div class="sp"><div class="cond" style="font-size:18px;font-weight:700">'+esc(d.modelCode||'Загвар сонгоогүй')+'</div><div class="muted" style="font-size:13px">'+esc(c?c.desc:'Code каталогоос загварын кодоо сонгоно')+'</div>'+(c&&c.ulger?'<div style="font-size:12.5px;margin-top:2px"><b>Үлгэр:</b> '+esc(c.ulger)+'</div>':'')+'</div>'+
-    '<button class="btn pri" id="pickModel">Каталогоос сонгох</button></div>'+
+  var body=modelCard(d)+
     '<div class="grid g3 mt">'+field('Загварын дугаар (гараар)',inp('modelCode',d.modelCode))+field('Индүүний шаблон',inp('ironTpl',d.ironTpl))+field('Зурах / CLO',sel('draw',d.draw,['Зурах','CLO']))+'</div>'+
     '<label class="row mt" style="gap:8px;cursor:pointer"><input type="checkbox" data-k="isNew" '+(d.isNew?'checked':'')+'> Шинэ загвар (эх загвар боловсруулах, скиз баталгаажуулах шаардлагатай)</label>';
   return sec('Д1','Загварын дугаар, шаблон',body);
@@ -507,7 +526,7 @@ function bindEditor(){
   var app=$('#app');
   app.oninput=function(e){
     var k=e.target.getAttribute&&e.target.getAttribute('data-k'); if(!k) return;
-    var v=e.target.type==='checkbox'?e.target.checked:e.target.value;
+    var v=e.target.type==='checkbox'?e.target.checked:e.target.value; if(k==='step') v=Number(v);
     setPath(D(),k,v);
     if(e.target.hasAttribute('data-sz')){ ['M','F'].forEach(function(g){ var t=$('#tot'+g); if(t) t.textContent=gTotal(D(),g); }); var a=$('#totAll'); if(a) a.textContent=total(D()); }
     markDirty(k);
@@ -529,6 +548,7 @@ function bindEditor(){
     if(t.hasAttribute('data-rmimg')){ var p2=t.getAttribute('data-rmimg'); var a=(getPath(D(),p2)||[]).slice(); a.splice(Number(t.getAttribute('data-i')),1); setPath(D(),p2,a); markDirty(p2); rerender(); return; }
     if(t.hasAttribute('data-add')){ var k=t.getAttribute('data-add'); var arr=(D()[k]||[]).slice(); arr.push(k==='extraSizes'?{gender:'M'}:{}); D()[k]=arr; markDirty(k); rerender(); return; }
     if(t.hasAttribute('data-rm')){ var k2=t.getAttribute('data-rm'); var arr2=(D()[k2]||[]).slice(); arr2.splice(Number(t.getAttribute('data-i')),1); D()[k2]=arr2; markDirty(k2); rerender(); return; }
+    if(t.hasAttribute('data-et')){ flushSave(); S.etab=t.getAttribute('data-et'); rerender(); window.scrollTo(0,0); return; }
     if(t.hasAttribute('data-mt')){ var i=Number(t.getAttribute('data-mt')); flushSave(); S.cur=i; S.status=''; rerender(); return; }
     if(t.hasAttribute('data-step')){ D().step=Number(t.getAttribute('data-step')); markDirty('step'); rerender(); return; }
     switch(t.id){
@@ -690,7 +710,7 @@ function factoryView(s,c,standalone){
   // Бусад сонголт
   ['khav','soilt','tsats','halaas','dotor'].forEach(function(k){ var rr=optRows(k,d); if(rr.length) h+='<div class="fv-card"><h3>'+OPT[k].title+'</h3><table class="t">'+rr.map(function(r){ return '<tr><td style="width:36%">'+esc(r[0])+'</td><td><b>'+esc(r[1])+'</b></td><td>'+esc(r[2])+'</td></tr>'; }).join('')+'</table></div>'; });
   if((d.matImgs||[]).length) h+='<div class="fv-card full"><h3>Материалын код, өөдөс</h3><div class="thumbs">'+d.matImgs.map(function(id,i){ return '<div class="thumb" style="width:150px;height:150px"><img src="'+img(id,500)+'" data-mimg="'+i+'"></div>'; }).join('')+'</div></div>';
-  if(d.note||d.custNote) h+='<div class="fv-card full"><h3>Тэмдэглэл</h3><div style="white-space:pre-wrap;font-size:15px">'+esc([d.note,d.custNote].filter(Boolean).join('\n\n'))+'</div></div>';
+  if(d.note||d.custNote||d.salesNote) h+='<div class="fv-card full"><h3>Тэмдэглэл</h3><div style="white-space:pre-wrap;font-size:15px">'+esc([d.note,d.salesNote,d.custNote].filter(Boolean).join('\n\n'))+'</div></div>';
   if((d.people||[]).length) h+='<div class="fv-card full"><h3>Хэмжээний жагсаалт</h3><div style="overflow-x:auto"><table class="t"><tr><th>№</th><th>Овог</th><th>Нэр</th><th>Хүйс</th><th>Өндөр</th><th>Жин</th><th>Размер</th></tr>'+d.people.map(function(p,i){ return '<tr><td>'+(i+1)+'</td><td>'+esc(p.last)+'</td><td>'+esc(p.first)+'</td><td>'+esc(p.gender)+'</td><td>'+esc(p.height)+'</td><td>'+esc(p.weight)+'</td><td><b>'+esc(p.size)+'</b></td></tr>'; }).join('')+'</table></div></div>';
   h+='<div class="fv-card full muted" style="font-size:13.5px">Боловсруулсан: <b style="color:var(--ink)">'+esc(signs.made)+'</b> · Хянасан: <b style="color:var(--ink)">'+esc(signs.checked)+'</b> · Баталсан: <b style="color:var(--ink)">'+esc(signs.approved)+'</b>'+(s.sent?' · Үйлдвэрт илгээсэн: '+esc(s.sent):'')+'</div>';
   h+='</div></div>';
@@ -717,7 +737,7 @@ function printSheet(s,c,imgs){
   h+='</td></tr></table>';
   var other=[]; ['khav','soilt','tsats','halaas','dotor'].forEach(function(k){ optRows(k,d).forEach(function(r){ other.push([OPT[k].title].concat(r)); }); });
   if(other.length) h+='<table><tr><th>Төрөл</th><th>Байрлал</th><th>Сонголт</th><th>Тайлбар</th></tr>'+other.map(function(r){ return '<tr><td>'+esc(r[0])+'</td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td><td>'+esc(r[3])+'</td></tr>'; }).join('')+'</table>';
-  if(d.note||d.custNote) h+='<table><tr><th>Тэмдэглэл</th></tr><tr><td style="white-space:pre-wrap">'+esc([d.note,d.custNote].filter(Boolean).join('\n'))+'</td></tr></table>';
+  if(d.note||d.custNote||d.salesNote) h+='<table><tr><th>Тэмдэглэл</th></tr><tr><td style="white-space:pre-wrap">'+esc([d.note,d.salesNote,d.custNote].filter(Boolean).join('\n'))+'</td></tr></table>';
   (d.revisions||[]).forEach(function(r){ h+='<div><b>Өөрчлөлт '+esc(r.at)+':</b> '+esc(r.note)+'</div>'; });
   h+='<div class="sign">Боловсруулсан: ........................................ '+esc(signs.made)+'<br>Хянасан: ................................................ '+esc(signs.checked)+'<br>Баталсан: .............................................. '+esc(signs.approved)+'</div>';
   h+='</div></div>';
