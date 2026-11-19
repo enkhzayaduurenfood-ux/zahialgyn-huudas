@@ -239,7 +239,7 @@ var DEFAULT_SIGNS = {made:'Д. Алтангэрэл', checked:'Н. Мөнх-Эр
 
 /* ================= Туслах ================= */
 var S = { mode: BOOT.mode, tab:'orders', list: BOOT.list||[], catalog: BOOT.catalog||[], settings: BOOT.settings||{},
-  order:null, sheets:[], cur:0, etab:'a', pending:{}, saving:false, saveTimer:null, status:'', filter:{q:'',st:'all'}, cfilter:{q:'',cat:''} };
+  order:null, sheets:[], cur:0, etab:'a', dEdit:{}, pending:{}, saving:false, saveTimer:null, status:'', filter:{q:'',st:'all'}, cfilter:{q:'',cat:''} };
 var AUTH = BOOT.mode==='admin' ? {k:BOOT.key} : BOOT.mode==='customer' ? {t:BOOT.token} : {};
 function who(){ try{ return localStorage.getItem('zh_name')||''; }catch(e){ return ''; } }
 function setWho(v){ try{ localStorage.setItem('zh_name',v); }catch(e){} }
@@ -425,7 +425,7 @@ function editorHtml(){
   h+='<fieldset style="border:0;padding:0;margin:0" '+(lock?'disabled':'')+'>';
   if(S.etab==='a') h+=secGeneral(d)+secModels()+secLogo(d)+mtabsHtml()+secModelInfo(d)+secColors(d)+secPeople(d);
   else if(S.etab==='b') h+=mtabsHtml()+secSizes(d)+secOpt('khav',d)+secOpt('soilt',d)+secOpt('tsats',d)+secOpt('halaas',d)+secOpt('dotor',d)+secSalesNote(d);
-  else { h+=mtabsHtml()+secModel(d)+secOrts(d)+secTpl(d)+secAux(d)+secMat(d)+secSigns(d); h+='<div class="row mt"><button class="btn danger" id="delSheet">Энэ загварын хуудсыг устгах</button></div>'; }
+  else { applyDesign(d,catFind(d.modelCode,d.modelCat),false); h+=mtabsHtml()+secModel(d)+secOrts(d)+secTpl(d)+secAux(d)+secMat(d)+secSigns(d); h+='<div class="row mt"><button class="btn danger" id="delSheet">Энэ загварын хуудсыг устгах</button></div>'; }
   var idx=tabs.map(function(t){return t[0];}).indexOf(S.etab);
   h+='<div class="row mt">'+(idx>0?'<button class="btn" data-et="'+tabs[idx-1][0]+'">← '+tabs[idx-1][1]+'</button>':'')+'<span class="sp"></span>'+(idx<tabs.length-1?'<button class="btn pri" data-et="'+tabs[idx+1][0]+'">'+tabs[idx+1][1]+' →</button>':'')+'</div>';
   h+='</fieldset>';
@@ -499,23 +499,32 @@ function secModelInfo(d){
 }
 function secSalesNote(d){ return sec(0,'Нэмэлт мэдээлэл, тэмдэглэл','<textarea data-k="salesNote" placeholder="Хавчуурга, сойлт, размер, халаас, доторын талаар нэмэлт тайлбар…">'+esc(d.salesNote||'')+'</textarea>'); }
 function secModel(d){
+  var c=catFind(d.modelCode,d.modelCat), lk=designLocked(curSheet()), has=!!(c&&c.design);
   var body=modelCard(d)+
-    '<div class="grid g3 mt">'+field('Загварын дугаар (гараар)',inp('modelCode',d.modelCode))+field('Индүүний шаблон',inp('ironTpl',d.ironTpl))+field('Зурах / CLO',sel('draw',d.draw,['Зурах','CLO']))+'</div>'+
+    '<div class="panel mt" style="box-shadow:none;background:'+(has?'var(--ok-soft)':'var(--warn-soft)')+';padding:12px">'+
+      (has?'<div class="row"><b>Code-оос дизайн бөглөгдсөн</b><span class="sp"></span><label class="row" style="gap:8px;cursor:pointer;font-weight:500"><input type="checkbox" data-dtoggle '+(lk?'':'checked')+'> Засах</label></div><p class="muted" style="margin:4px 0 0;font-size:13px">Орц, шаблон, туслах материал Code каталогоос автоматаар орсон. Өөрчлөх бол <b>Засах</b>-ыг асаана. Засварыг Code-д хадгалах бол <b>Code-д хадгалах</b> дарна, эс бөгөөс зөвхөн энэ захиалгад үлдэнэ.</p>'+(lk?'':'<div class="row mt" style="gap:6px"><button class="btn pri" id="saveDesign">Code-д хадгалах</button><button class="btn" id="loadDesign">Code-ийн хувилбар руу буцаах</button></div>')
+      :'<b>Энэ загварын дизайн Code-д алга</b><p class="muted" style="margin:4px 0 8px;font-size:13px">Анх удаа бөглөж буй мэдээлэл үйлдвэрт илгээх үед Code-д автоматаар хадгалагдана. Дараа нь энэ загварыг сонгоход шууд бөглөгдөж ирнэ.</p><button class="btn pri" id="saveDesign">Одоо Code-д хадгалах</button>')+
+    '</div>'+
+    '<div class="grid g3 mt">'+field('Загварын дугаар (гараар)',inp('modelCode',d.modelCode))+field('Индүүний шаблон',inp('ironTpl',d.ironTpl,lk?'disabled':''))+field('Зурах / CLO',lk?'<input value="'+esc(d.draw||'')+'" disabled>':sel('draw',d.draw,['Зурах','CLO']))+'</div>'+
     '<label class="row mt" style="gap:8px;cursor:pointer"><input type="checkbox" data-k="isNew" '+(d.isNew?'checked':'')+'> Шинэ загвар (эх загвар боловсруулах, скиз баталгаажуулах шаардлагатай)</label>'+
-    '<div class="panel mt" style="box-shadow:none;background:#fafbfa;padding:12px"><b>Code-д загварын дизайн</b><p class="muted" style="margin:4px 0 8px;font-size:13px">Индүүний шаблон, CLO, орц, шаблон, туслах материалыг энэ загварын кодоор Code-д хадгална. Дараа нь энэ загварыг сонгоход автоматаар бөглөгдөнө. Үйлдвэрт илгээхэд ч автоматаар хадгалагдана.</p>'+
-    (function(){ var c=catFind(d.modelCode,d.modelCat); return '<div class="row" style="gap:6px"><button class="btn pri" id="saveDesign">Code-д хадгалах</button>'+(c&&c.design?'<button class="btn" id="loadDesign">Code-оос татах</button><span class="badge ok">Code-д хадгалагдсан дизайн байна</span>':'<span class="muted" style="font-size:12.5px">Code-д хадгалагдсан дизайн алга</span>')+'</div>'; })()+'</div>';
+    '';
   return sec('Д1','Загварын дугаар, шаблон',body);
 }
-function rowsTable(key,cols,rows,addLabel){
+var DCOLS={
+  orts:[['name','Орц (жишээ нь Их бие-180см)'],['color','Өнгө-Өргөн','28%'],['code','Код','18%']],
+  tpl:[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','28%']],
+  aux:[['name','Материал (жишээ нь Товч-2ш)'],['color','Өнгө','20%'],['code','Код','16%'],['lengths','Размер бүрийн урт (жишээ нь 38р-74.5см, 40р-75см)','34%','ta']]
+};
+function designLocked(s){ var c=catFind(s.data.modelCode,s.data.modelCat); return !!(c&&c.design)&&!S.dEdit[s.id]; }
+function rowsTable(key,cols,rows,addLabel,ro){
+  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r){ return '<tr>'+cols.map(function(c){ return '<td style="white-space:pre-wrap">'+esc(r[c[0]]||'')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
   return '<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
     (rows||[]).map(function(r,i){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-k="'+key+'.'+i+'.'+c[0]+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':inp(key+'.'+i+'.'+c[0],r[c[0]]))+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-rm="'+key+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
     '</table></div><button class="btn sm mt" data-add="'+key+'">'+addLabel+'</button>';
 }
-function secOrts(d){ return sec('Д2','Эсгүүр — материал, нэгж орц, өнгө',rowsTable('orts',[['name','Орц (жишээ нь Их бие-180см)'],['color','Өнгө-Өргөн','28%'],['code','Код','18%']],d.orts,'+ Мөр нэмэх')); }
-function secTpl(d){ return sec('Д3','Эсгүүрт ашиглах шаблон',rowsTable('tpl',[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','28%']],d.tpl,'+ Мөр нэмэх')); }
-function secAux(d){
-  return sec('Д4','Туслах материал',rowsTable('aux',[['name','Материал (жишээ нь Товч-2ш)'],['color','Өнгө','20%'],['code','Код','16%'],['lengths','Размер бүрийн урт (жишээ нь 38р-74.5см, 40р-75см)','34%','ta']],d.aux,'+ Материал нэмэх'));
-}
+function secOrts(d){ return sec('Д2','Эсгүүр — материал, нэгж орц, өнгө',rowsTable('orts',DCOLS.orts,d.orts,'+ Мөр нэмэх',designLocked(curSheet()))); }
+function secTpl(d){ return sec('Д3','Эсгүүрт ашиглах шаблон, шаблоны код',rowsTable('tpl',DCOLS.tpl,d.tpl,'+ Мөр нэмэх',designLocked(curSheet()))); }
+function secAux(d){ return sec('Д4','Туслах материал',rowsTable('aux',DCOLS.aux,d.aux,'+ Материал нэмэх',designLocked(curSheet()))); }
 function secMat(d){ return sec('Д5','Материалын код, өөдөс үдэх хэсэг', thumbsHtml(d.matImgs,'matImgs',true,'Материал, өөдөс')+'<div class="mt">'+field('Тэмдэглэл (үйлдвэрт харагдана)','<textarea data-k="note">'+esc(d.note||'')+'</textarea>')+'</div>'); }
 function secSigns(d){ var s=Object.assign({},DEFAULT_SIGNS,d.signs||{}); return sec('Д6','Гарын үсэг','<div class="grid g3">'+field('Боловсруулсан',inp('signs.made',s.made))+field('Хянасан',inp('signs.checked',s.checked))+field('Баталсан',inp('signs.approved',s.approved))+'</div>',false); }
 
@@ -567,6 +576,7 @@ function bindEditor(){
         .catch(function(err){ setStatus('Зураг байршуулж чадсангүй: '+err.message,true); });
       return;
     }
+    if(e.target.hasAttribute&&e.target.hasAttribute('data-dtoggle')){ S.dEdit[curSheet().id]=e.target.checked; rerender(); return; }
     var k=e.target.getAttribute&&e.target.getAttribute('data-k');
     if(k==='isNew'){ rerender(); }
   };
@@ -577,7 +587,7 @@ function bindEditor(){
     if(t.hasAttribute('data-add')){ var k=t.getAttribute('data-add'); var arr=(D()[k]||[]).slice(); arr.push(k==='extraSizes'?{gender:'M'}:{}); D()[k]=arr; markDirty(k); rerender(); return; }
     if(t.hasAttribute('data-rm')){ var k2=t.getAttribute('data-rm'); var arr2=(D()[k2]||[]).slice(); arr2.splice(Number(t.getAttribute('data-i')),1); D()[k2]=arr2; markDirty(k2); rerender(); return; }
     if(t.hasAttribute('data-szsel')){ var q=t.getAttribute('data-szsel').split('|'); var cur=getPath(D(),'sizeSel.'+q[0]+'.'+q[1]+'.'+q[2]); setPath(D(),'sizeSel.'+q[0]+'.'+q[1]+'.'+q[2],!cur); t.classList.toggle('on',!cur); markDirty('sizeSel'); return; }
-    if(t.hasAttribute('data-et')){ flushSave(); S.etab=t.getAttribute('data-et'); rerender(); window.scrollTo(0,0); return; }
+    if(t.hasAttribute('data-et')){ if(S.etab==='c'&&!isCust()){ var cc=catFind(D().modelCode,D().modelCat); if(cc&&!cc.design&&Object.keys(designOf(D())).length) saveDesign(true); } flushSave(); S.etab=t.getAttribute('data-et'); rerender(); window.scrollTo(0,0); return; }
     if(t.hasAttribute('data-mt')){ var i=Number(t.getAttribute('data-mt')); flushSave(); S.cur=i; S.status=''; rerender(); return; }
     if(t.hasAttribute('data-step')){ D().step=Number(t.getAttribute('data-step')); markDirty('step'); rerender(); return; }
     switch(t.id){
@@ -587,7 +597,7 @@ function bindEditor(){
       case 'pickModels': pickModel('add'); break;
       case 'codeEntry': codeEntry(); break;
       case 'saveDesign': saveDesign(false); break;
-      case 'loadDesign': if(confirm('Code-д хадгалсан дизайнаар дизайнерын хэсгийг дарж бичих үү?')){ applyDesign(D(),catFind(D().modelCode,D().modelCat),true); rerender(); } break;
+      case 'loadDesign': if(confirm('Энэ захиалгад хийсэн засварыг арилгаж, Code-ийн хувилбарыг буцааж оруулах уу?')){ applyDesign(D(),catFind(D().modelCode,D().modelCat),true); rerender(); } break;
       case 'custSubmit': custSubmit(); break;
       case 'custLink': copy(custUrl(curSheet())); break;
       case 'facLink': copy(factoryUrl(curSheet())); break;
@@ -608,7 +618,7 @@ function addSheet(){
 function sendFactory(){
   var d=D(); var miss=[]; if(!d.modelCode) miss.push('загварын код'); if(!total(d)) miss.push('размерийн тоо');
   if(!confirm((miss.length?'Анхаар: '+miss.join(', ')+' бөглөгдөөгүй байна.\n\n':'')+'Энэ хуудсыг үйлдвэрт илгээх үү? Үйлдвэрийн линк үүснэ.')) return;
-  flushSave().then(function(){ return saveDesign(true); }).then(function(){ return api('apiSendToFactory',auth(),curSheet().id); }).then(function(o){ var s=curSheet(); s.sent=o.sent; s.factoryToken=o.factoryToken; syncList(s); render(); copy(factoryUrl(s)); }).catch(function(e){ alert(e.message); });
+  flushSave().then(function(){ var c=catFind(D().modelCode,D().modelCat); return (c&&c.design)?null:saveDesign(true); }).then(function(){ return api('apiSendToFactory',auth(),curSheet().id); }).then(function(o){ var s=curSheet(); s.sent=o.sent; s.factoryToken=o.factoryToken; syncList(s); render(); copy(factoryUrl(s)); }).catch(function(e){ alert(e.message); });
 }
 function saveRevision(){
   var n=$('#revNote').value.trim();
@@ -639,7 +649,7 @@ function applyModel(d,it){
 function saveDesign(silent){
   var d=D(); if(!d.modelCode){ if(!silent) alert('Эхлээд загварын код сонгоно уу'); return Promise.resolve(); }
   var des=designOf(d); if(!Object.keys(des).length){ if(!silent) alert('Дизайнерын хэсэг хоосон байна'); return Promise.resolve(); }
-  return api('apiSaveDesign',auth(),d.modelCat||'',d.modelCode,des).then(function(c){ S.catalog=c; if(!silent){ toast(d.modelCode+' загварын дизайн Code-д хадгалагдлаа'); rerender(); } })
+  return api('apiSaveDesign',auth(),d.modelCat||'',d.modelCode,des).then(function(c){ S.catalog=c; S.dEdit[curSheet().id]=false; if(!silent){ toast(d.modelCode+' загварын дизайн Code-д хадгалагдлаа'); rerender(); } })
     .catch(function(e){ if(!silent) alert(e.message); });
 }
 function pickModel(mode){
@@ -738,6 +748,7 @@ function bindCatalog(){
 }
 function catEdit(item){
   var x=item?JSON.parse(JSON.stringify(item)):{cat:S.cfilter.cat||'',code:'',desc:'',clo:'',ulger:'',unelgee:'',zagvar:'',front:[],back:[]};
+  x.design=x.design||{};
   var orig=item?item.cat+'|'+item.code:'';
   var m=modal('');
   function imgsBlock(side,label){
@@ -751,10 +762,17 @@ function catEdit(item){
       '<div class="mt"><label class="f">Тодорхойлолт</label><input data-f="desc" value="'+esc(x.desc)+'"></div>'+
       '<div class="mt"><label class="f">Үлгэр</label><textarea data-f="ulger">'+esc(x.ulger)+'</textarea></div>'+
       '<div class="grid g2 mt"><div><label class="f">Үнэлгээ</label><input data-f="unelgee" value="'+esc(x.unelgee)+'"></div><div><label class="f">Загвар</label><input data-f="zagvar" value="'+esc(x.zagvar)+'"></div></div>'+
+      '<h3 class="mt2" style="border-top:1px solid var(--line);padding-top:16px">Загварын дизайн (захиалга дээр автоматаар бөглөгдөнө)</h3>'+
+      '<div class="grid g2"><div><label class="f">Индүүний шаблон</label><input data-df="ironTpl" value="'+esc(x.design.ironTpl||'')+'"></div><div><label class="f">Зурах / CLO</label><select data-df="draw"><option value="">—</option>'+['Зурах','CLO'].map(function(o){ return '<option'+(x.design.draw===o?' selected':'')+'>'+o+'</option>'; }).join('')+'</select></div></div>'+
+      [['orts','Эсгүүр — нэгж орц'],['tpl','Эсгүүрт ашиглах шаблон, шаблоны код'],['aux','Туслах материал']].map(function(g){
+        return '<div class="mt"><label class="f" style="font-size:13.5px;color:var(--ink)">'+g[1]+'</label><div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+DCOLS[g[0]].map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
+          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+DCOLS[g[0]].map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
+          '</table></div><button class="btn sm mt" data-dadd="'+g[0]+'">+ Мөр нэмэх</button></div>';
+      }).join('')+
       '<div class="row mt">'+(item?'<button class="btn danger" id="cdel">Устгах</button>':'')+'<span class="sp"></span><span class="status" id="cst"></span><button class="btn pri" id="csave">Хадгалах</button></div>';
   }
   draw();
-  m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; });
+  m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; var df=e.target.getAttribute('data-df'); if(df) setPath(x.design,df,e.target.value); });
   m.addEventListener('change',function(e){
     var side=e.target.getAttribute('data-upside'); if(!side) return;
     $('#cst',m).textContent='Зураг байршуулж байна…';
@@ -762,9 +780,11 @@ function catEdit(item){
   });
   m.addEventListener('click',function(e){
     var t=e.target;
+    if(t.hasAttribute('data-dadd')){ var g=t.getAttribute('data-dadd'); x.design[g]=(x.design[g]||[]).concat([{}]); draw(); return; }
+    if(t.hasAttribute('data-drm')){ var g2=t.getAttribute('data-drm'); x.design[g2].splice(Number(t.getAttribute('data-i')),1); draw(); return; }
     if(t.hasAttribute('data-rmside')){ x[t.getAttribute('data-rmside')].splice(Number(t.getAttribute('data-i')),1); draw(); return; }
     if(t.hasAttribute('data-side')){ var sd=t.getAttribute('data-side'); lightbox(x[sd].map(function(id){return {id:id,cap:x.code};}),Number(t.getAttribute('data-i'))); return; }
-    if(t.id==='csave'){ if(!x.code||!x.cat){ alert('Ангилал, код заавал'); return; } t.disabled=true; t.textContent='Хадгалж байна…'; api('apiSaveCatalog',auth(),x,orig).then(function(c){ S.catalog=c; closeModal(); render(); toast('Хадгалагдлаа'); }).catch(function(er){ t.disabled=false; t.textContent='Хадгалах'; alert(er.message); }); }
+    if(t.id==='csave'){ if(!x.code||!x.cat){ alert('Ангилал, код заавал'); return; } var dd=designOf(x.design); x.design=Object.keys(dd).length?dd:null; t.disabled=true; t.textContent='Хадгалж байна…'; api('apiSaveCatalog',auth(),x,orig).then(function(c){ S.catalog=c; closeModal(); render(); toast('Хадгалагдлаа'); }).catch(function(er){ t.disabled=false; t.textContent='Хадгалах'; alert(er.message); }); }
     if(t.id==='cdel'){ if(!confirm(x.code+' загварыг каталогоос устгах уу?')) return; api('apiDeleteCatalog',auth(),orig).then(function(c){ S.catalog=c; closeModal(); render(); }); }
   });
 }
