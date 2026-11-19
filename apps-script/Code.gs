@@ -20,13 +20,13 @@ var SHEET_SETTINGS = 'Тохиргоо';
 var ORDER_HEADERS = ['ID', 'Захиалгын №', 'Дараалал', 'Он', 'Захиалагч', 'Хүлээж авсан', 'Хүлээлгэн өгөх',
   'Загварын код', 'Загварын тайлбар', 'Алхам', 'Төлөв', 'Нийт тоо', 'Үүсгэсэн', 'Шинэчилсэн', 'Илгээсэн',
   'Захиалагчийн токен', 'Үйлдвэрийн токен', 'Устгасан', 'Өгөгдөл (JSON)'];
-var CATALOG_HEADERS = ['Ангилал', 'Код', 'Тодорхойлолт', 'CLO', 'Үлгэр', 'Үнэлгээ', 'Загвар', 'Энгэр зураг', 'Ар зураг', 'Шинэчилсэн'];
+var CATALOG_HEADERS = ['Ангилал', 'Код', 'Тодорхойлолт', 'CLO', 'Үлгэр', 'Үнэлгээ', 'Загвар', 'Энгэр зураг', 'Ар зураг', 'Шинэчилсэн', 'Энгэр зургийн холбоос', 'Ар зургийн холбоос', 'Дизайны мэдээлэл (JSON)'];
 var LOG_HEADERS = ['Огноо', 'Хэн', 'Захиалгын №', 'Хуудас ID', 'Үйлдэл', 'Тэмдэглэл'];
 
 // Захиалагч засаж болох талбарууд (ZH хэсэг)
-var CUSTOMER_KEYS = ['modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
+var CUSTOMER_KEYS = ['custSubmitted', 'modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
   'khav', 'soilt', 'logo', 'tsats', 'halaas', 'dotor', 'people', 'custNote', 'zhSigns'];
-var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate'];
+var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'logo'];
 var STEPS = ['Захиалга хүлээн авах', 'Захиалгын мэдээлэл нягтлах', 'Захиалгын хуудас бөглөх', 'Захиалга баталгаажуулах', 'Эх загвар, скиз баталгаажуулах'];
 
 /* ------------------------------------------------------------------ */
@@ -103,7 +103,7 @@ function importCatalog() {
   var rows = items.map(function (x) {
     var fr = (x.front || []).map(function (n) { return done[n]; }).filter(String).join(',');
     var bk = (x.back || []).map(function (n) { return done[n]; }).filter(String).join(',');
-    return [x.cat, x.code, x.desc || '', x['CLO'] || '', x['Үлгэр'] || '', x['Үнэлгээ'] || '', x['Загвар'] || '', fr, bk, now];
+    return [x.cat, x.code, x.desc || '', x['CLO'] || '', x['Үлгэр'] || '', x['Үнэлгээ'] || '', x['Загвар'] || '', fr, bk, now, links_(fr), links_(bk), ''];
   });
   if (rows.length) sh.getRange(2, 1, rows.length, CATALOG_HEADERS.length).setValues(rows);
   props.deleteProperty('IMPORT_DONE');
@@ -117,7 +117,7 @@ function importCatalog() {
 var API_FNS = { apiList: apiList, apiGetSheet: apiGetSheet, apiGetOrder: apiGetOrder, apiCreateOrder: apiCreateOrder,
   apiAddSheet: apiAddSheet, apiSave: apiSave, apiSendToFactory: apiSendToFactory, apiDeleteSheet: apiDeleteSheet,
   apiSetSeq: apiSetSeq, apiUpload: apiUpload, apiCatalog: apiCatalog, apiSaveCatalog: apiSaveCatalog,
-  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog };
+  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign };
 
 function doPost(e) {
   var out;
@@ -195,16 +195,20 @@ function apiCreateOrder(auth, init) {
 }
 
 /** Захиалгад шинэ загварын хуудас нэмэх */
-function apiAddSheet(auth, orderNo, copyFromId) {
+function apiAddSheet(auth, orderNo, copyFromId, init) {
   var rows = sheetsByOrder_(orderNo);
   if (!rows.length) throw new Error('Захиалга олдсонгүй');
   var first = rows[0];
   var isCust = auth && auth.t && auth.t === first.custToken;
   if (!isAdmin_(auth) && !isCust) throw new Error('Эрх байхгүй');
-  var data = { customer: first.data.customer, recvDate: first.data.recvDate, dueDate: first.data.dueDate, step: first.data.step || 1 };
+  var data = { customer: first.data.customer, recvDate: first.data.recvDate, dueDate: first.data.dueDate, logo: first.data.logo || {}, step: first.data.step || 1 };
   if (copyFromId) {
     var src = rows.filter(function (r) { return r.id === copyFromId; })[0];
     if (src) { data = JSON.parse(JSON.stringify(src.data)); data.revisions = []; data.photos = data.photos || []; }
+  }
+  if (init) {
+    var allowed = isAdmin_(auth) ? Object.keys(init) : ['modelCode', 'modelCat', 'modelDesc', 'ironTpl', 'draw', 'orts', 'tpl', 'aux'];
+    allowed.forEach(function (k) { if (k in init) data[k] = init[k]; });
   }
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
   try {
@@ -303,8 +307,11 @@ function apiSaveCatalog(auth, item, origKey) {
     var row = -1;
     var key = origKey || (item.cat + '|' + item.code);
     for (var i = 1; i < vals.length; i++) { if (vals[i][0] + '|' + vals[i][1] === key) { row = i + 1; break; } }
+    var fr = (item.front || []).join(','), bk = (item.back || []).join(',');
+    var design = item.design;
+    if (design === undefined && row > 0) design = vals[row - 1][12] ? JSON.parse(vals[row - 1][12]) : null;
     var rec = [item.cat, item.code, item.desc || '', item.clo || '', item.ulger || '', item.unelgee || '', item.zagvar || '',
-      (item.front || []).join(','), (item.back || []).join(','), new Date()];
+      fr, bk, new Date(), links_(fr), links_(bk), design ? JSON.stringify(design) : ''];
     if (row < 0) sh.appendRow(rec); else sh.getRange(row, 1, 1, rec.length).setValues([rec]);
     log_(auth.who, '', '', row < 0 ? 'Каталогт нэмсэн' : 'Каталог зассан', item.cat + ' ' + item.code);
     return allCatalog_();
@@ -443,18 +450,55 @@ function listSheets_() {
     try { d = JSON.parse(v[18] || '{}'); } catch (e) { }
     var thumb = (d.photos && d.photos[0]) || '';
     return { id: v[0], orderNo: v[1], seq: Number(v[2]), year: Number(v[3]), customer: d.customer || '', recvDate: d.recvDate || '', dueDate: d.dueDate || '', modelCode: d.modelCode || '', modelCat: d.modelCat || '',
-      modelDesc: v[8], step: d.step || 1, sent: v[14], total: Number(v[11]) || 0, updated: v[13], custToken: v[15], factoryToken: v[16], thumb: thumb };
+      modelDesc: v[8], step: d.step || 1, sent: v[14], total: Number(v[11]) || 0, updated: v[13], custToken: v[15], factoryToken: v[16], thumb: thumb, custSubmitted: d.custSubmitted || '' };
   }).reverse();
+}
+
+function links_(ids) {
+  return String(ids || '').split(',').filter(String).map(function (id) { return 'https://drive.google.com/file/d/' + id + '/view'; }).join('\n');
+}
+
+/** Каталогийн хуудсанд зургийн холбоос, дизайны баганыг нэмэх (нэг удаа) */
+function upgradeCatalog_(sh) {
+  if (sh.getRange(1, 11).getValue()) return;
+  sh.getRange(1, 1, 1, CATALOG_HEADERS.length).setValues([CATALOG_HEADERS]).setFontWeight('bold').setBackground('#e8eef7');
+  var n = sh.getLastRow();
+  if (n < 2) return;
+  var v = sh.getRange(2, 8, n - 1, 2).getDisplayValues();
+  sh.getRange(2, 11, n - 1, 2).setValues(v.map(function (r) { return [links_(r[0]), links_(r[1])]; }));
 }
 
 function allCatalog_() {
   var sh = ss_().getSheetByName(SHEET_CATALOG);
+  upgradeCatalog_(sh);
   var n = sh.getLastRow();
   if (n < 2) return [];
   return sh.getRange(2, 1, n - 1, CATALOG_HEADERS.length).getDisplayValues().map(function (v) {
+    var design = null;
+    try { design = v[12] ? JSON.parse(v[12]) : null; } catch (e) { }
     return { cat: v[0], code: v[1], desc: v[2], clo: v[3], ulger: v[4], unelgee: v[5], zagvar: v[6],
-      front: v[7] ? v[7].split(',') : [], back: v[8] ? v[8].split(',') : [] };
+      front: v[7] ? v[7].split(',') : [], back: v[8] ? v[8].split(',') : [], design: design };
   }).filter(function (x) { return x.code; });
+}
+
+/** Загварын дизайнерын мэдээллийг каталогт хадгалах */
+function apiSaveDesign(auth, cat, code, design) {
+  requireAdmin_(auth);
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = ss_().getSheetByName(SHEET_CATALOG);
+    upgradeCatalog_(sh);
+    var vals = sh.getDataRange().getValues();
+    for (var i = 1; i < vals.length; i++) {
+      if (vals[i][1] === code && (!cat || vals[i][0] === cat)) {
+        sh.getRange(i + 1, 13).setValue(JSON.stringify(design));
+        sh.getRange(i + 1, 10).setValue(new Date());
+        log_(auth.who, '', '', 'Дизайны мэдээлэл хадгалсан', vals[i][0] + ' ' + code);
+        return allCatalog_();
+      }
+    }
+    throw new Error('Каталогт ' + code + ' код олдсонгүй. Эхлээд каталогт нэмнэ үү.');
+  } finally { lock.releaseLock(); }
 }
 
 function catalogFor_(code, cat) {
