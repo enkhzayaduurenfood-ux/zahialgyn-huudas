@@ -362,7 +362,7 @@ function ordersHtml(){
     return '<div class="ocard" data-open="'+esc(o.orderNo)+'"><div class="no">№ '+esc(o.orderNo)+'</div><div><div><b>'+esc(o.customer||'—')+'</b> <span class="muted">· хүлээж авсан '+esc(o.recvDate||'—')+' · өгөх '+esc(o.dueDate||'—')+'</span></div><div class="models">'+
       o.sheets.map(function(s){ return '<div class="srow"><span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+(s.sent?'Үйлдвэрт илгээсэн':'Алхам '+s.step)+' · '+s.total+'ш</span>'+
         (s.sent&&s.factoryToken?'<button class="btn sm" data-cl="fac" data-id="'+esc(s.id)+'">Үйлдвэрийн линк</button><button class="btn sm" data-cl="view" data-id="'+esc(s.id)+'">Харах</button>':'<span class="muted" style="font-size:12px">үйлдвэрт илгээгээгүй</span>')+'</div>'; }).join('')+
-      '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
+      '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><button class="btn sm danger" data-cl="del" data-id="'+esc(o.sheets[0].id)+'">Устгах</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
   }).join('')+'</div>';
   return h;
 }
@@ -371,6 +371,7 @@ function bindOrders(){
   $$('[data-st]').forEach(function(b){ b.onclick=function(){ S.filter.st=b.getAttribute('data-st'); render(); }; });
   $$('[data-open]').forEach(function(c){ c.onclick=function(){ openOrder(c.getAttribute('data-open')); }; });
   $$('[data-cl]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); var s=S.list.filter(function(x){ return x.id===b.getAttribute('data-id'); })[0]; if(!s) return; var k=b.getAttribute('data-cl');
+    if(k==='del'){ deleteOrder(s.orderNo); return; }
     if(k==='cust') copy(custUrl(s)); else if(k==='fac') copy(factoryUrl(s)); else window.open(factoryUrl(s),'_blank'); }; });
   $('#newOrder').onclick=newOrderModal;
 }
@@ -410,7 +411,7 @@ function editorHtml(){
   if(admin) h+='<button class="btn" id="back">← Жагсаалт</button>';
   h+='<div><h1>Захиалгын хуудас № '+esc(s.orderNo)+'</h1><div class="muted">'+esc(d.customer||'Захиалагч бичигдээгүй')+'</div></div><span class="sp"></span>';
   if(admin){
-    h+='<button class="btn" id="custLink" title="Захиалагч өөрөө бөглөх линк">Захиалагчийн линк</button>';
+    h+='<button class="btn" id="custLink" title="Захиалагч өөрөө бөглөх линк">Захиалагчийн линк</button><button class="btn danger" id="delOrder" title="Бүх загвартай нь устгана">Захиалга устгах</button>';
     if(s.sent) h+='<button class="btn ok" id="facLink">Үйлдвэрийн линк хуулах</button><button class="btn" id="facOpen">Харах</button>';
     else h+='<button class="btn ok" id="send">Үйлдвэрт илгээх</button>';
   }
@@ -515,9 +516,11 @@ var DCOLS={
   tpl:[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','28%']],
   aux:[['name','Материал (жишээ нь Товч-2ш)'],['color','Өнгө','20%'],['code','Код','16%'],['lengths','Размер бүрийн урт (жишээ нь 38р-74.5см, 40р-75см)','34%','ta']]
 };
+var ORDER_COLS={orts:['color','code'],aux:['color','code']};
+function isOrderCol(k,c){ return (ORDER_COLS[k]||[]).indexOf(c)>=0; }
 function designLocked(s){ var c=catFind(s.data.modelCode,s.data.modelCat); return !!(c&&c.design)&&!S.dEdit[s.id]; }
 function rowsTable(key,cols,rows,addLabel,ro){
-  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r){ return '<tr>'+cols.map(function(c){ return '<td style="white-space:pre-wrap">'+esc(r[c[0]]||'')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
+  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+(isOrderCol(key,c[0])?' <span class="badge acc" style="font-weight:400">энэ захиалгад</span>':'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r,i){ return '<tr>'+cols.map(function(c){ return isOrderCol(key,c[0])?'<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+inp(key+'.'+i+'.'+c[0],r[c[0]])+'</td>':'<td style="white-space:pre-wrap">'+esc(r[c[0]]||'')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
   return '<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
     (rows||[]).map(function(r,i){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-k="'+key+'.'+i+'.'+c[0]+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':inp(key+'.'+i+'.'+c[0],r[c[0]]))+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-rm="'+key+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
     '</table></div><button class="btn sm mt" data-add="'+key+'">'+addLabel+'</button>';
@@ -606,6 +609,7 @@ function bindEditor(){
       case 'send': sendFactory(); break;
       case 'saveRev': saveRevision(); break;
       case 'delSheet': delSheet(); break;
+      case 'delOrder': deleteOrder(S.order); break;
     }
   };
 }
@@ -626,6 +630,18 @@ function saveRevision(){
   if(!n){ $('#revNote').focus(); toast('Юу өөрчилснөө бичнэ үү'); return; }
   flushSave(n).then(function(){ toast('Засвар хадгалагдлаа. Үйлдвэрийн линк шинэчлэгдсэн.'); rerender(); });
 }
+function deleteOrder(no){
+  var ids=S.list.filter(function(x){ return x.orderNo===no; }).map(function(x){ return x.id; });
+  if(S.order===no) S.sheets.forEach(function(s){ if(ids.indexOf(s.id)<0) ids.push(s.id); });
+  if(!ids.length) return;
+  if(!confirm('№ '+no+' захиалгыг ('+ids.length+' загварын хуудастай нь) устгах уу?\n\nУстгасан захиалга жагсаалтаас алга болно. Өгөгдлийн санд (Google Sheet) "Устгасан" гэж тэмдэглэгдэж хадгалагдана.')) return;
+  toast('Устгаж байна…');
+  ids.reduce(function(p,id){ return p.then(function(){ return api('apiDeleteSheet',auth(),id); }); },Promise.resolve()).then(function(){
+    S.list=S.list.filter(function(x){ return x.orderNo!==no; });
+    if(S.order===no){ S.order=null; S.sheets=[]; S.pending={}; clearTimeout(S.saveTimer); }
+    render(); toast('№ '+no+' захиалга устгагдлаа');
+  }).catch(function(e){ alert('Устгаж чадсангүй: '+e.message); });
+}
 function delSheet(){ if(!confirm('Энэ загварын хуудсыг устгах уу?')) return; api('apiDeleteSheet',auth(),curSheet().id).then(function(){ var id=curSheet().id; S.list=S.list.filter(function(x){return x.id!==id;}); S.sheets.splice(S.cur,1); S.pending={}; if(!S.sheets.length){ S.order=null; } S.cur=0; render(); }); }
 function previewFactory(){
   var s=curSheet(), c=catFind(s.data.modelCode,s.data.modelCat);
@@ -636,10 +652,10 @@ function previewFactory(){
 
 /* ================= Каталогоос сонгох ================= */
 var DESIGN_KEYS=['ironTpl','draw','orts','tpl','aux'];
-function designOf(d){ var o={}; DESIGN_KEYS.forEach(function(k){ if(d[k]!=null&&d[k]!==''&&!(Array.isArray(d[k])&&!d[k].length)) o[k]=JSON.parse(JSON.stringify(d[k])); }); return o; }
+function designOf(d){ var o={}; DESIGN_KEYS.forEach(function(k){ if(d[k]!=null&&d[k]!==''&&!(Array.isArray(d[k])&&!d[k].length)){ var v=JSON.parse(JSON.stringify(d[k])); if(Array.isArray(v)&&ORDER_COLS[k]) v=v.map(function(r){ ORDER_COLS[k].forEach(function(c){ delete r[c]; }); return r; }); o[k]=v; } }); return o; }
 function applyDesign(d,c,force){
   if(!c||!c.design) return;
-  DESIGN_KEYS.forEach(function(k){ var v=c.design[k]; if(v==null) return; var empty=d[k]==null||d[k]===''||(Array.isArray(d[k])&&!d[k].length); if(force||empty){ d[k]=JSON.parse(JSON.stringify(v)); if(d===D()) markDirty(k); } });
+  DESIGN_KEYS.forEach(function(k){ var v=c.design[k]; if(v==null) return; var empty=d[k]==null||d[k]===''||(Array.isArray(d[k])&&!d[k].length); if(force||empty){ var old=d[k]; d[k]=JSON.parse(JSON.stringify(v)); if(Array.isArray(d[k])&&Array.isArray(old)&&ORDER_COLS[k]) d[k].forEach(function(r){ var o=old.filter(function(x){ return x.name===r.name; })[0]; if(o) ORDER_COLS[k].forEach(function(c){ if(o[c]) r[c]=o[c]; }); }); if(d===D()) markDirty(k); } });
 }
 function applyModel(d,it){
   d.modelCode=it.code; d.modelCat=it.cat; if(!d.modelDesc) d.modelDesc=it.desc;
@@ -764,9 +780,11 @@ function catEdit(item){
       '<div class="grid g2 mt"><div><label class="f">Үнэлгээ</label><input data-f="unelgee" value="'+esc(x.unelgee)+'"></div><div><label class="f">Загвар</label><input data-f="zagvar" value="'+esc(x.zagvar)+'"></div></div>'+
       '<h3 class="mt2" style="border-top:1px solid var(--line);padding-top:16px">Загварын дизайн (захиалга дээр автоматаар бөглөгдөнө)</h3>'+
       '<div class="grid g2"><div><label class="f">Индүүний шаблон</label><input data-df="ironTpl" value="'+esc(x.design.ironTpl||'')+'"></div><div><label class="f">Зурах / CLO</label><select data-df="draw"><option value="">—</option>'+['Зурах','CLO'].map(function(o){ return '<option'+(x.design.draw===o?' selected':'')+'>'+o+'</option>'; }).join('')+'</select></div></div>'+
+      '<p class="muted" style="font-size:12.5px;margin:0 0 6px">Өнгө, кодыг захиалга бүр дээр гараар бөглөнө.</p>'+
       [['orts','Эсгүүр — нэгж орц'],['tpl','Эсгүүрт ашиглах шаблон, шаблоны код'],['aux','Туслах материал']].map(function(g){
-        return '<div class="mt"><label class="f" style="font-size:13.5px;color:var(--ink)">'+g[1]+'</label><div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+DCOLS[g[0]].map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
-          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+DCOLS[g[0]].map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
+        var CC=DCOLS[g[0]].filter(function(c){ return !isOrderCol(g[0],c[0]); });
+        return '<div class="mt"><label class="f" style="font-size:13.5px;color:var(--ink)">'+g[1]+'</label><div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+CC.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
+          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+CC.map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
           '</table></div><button class="btn sm mt" data-dadd="'+g[0]+'">+ Мөр нэмэх</button></div>';
       }).join('')+
       '<div class="row mt">'+(item?'<button class="btn danger" id="cdel">Устгах</button>':'')+'<span class="sp"></span><span class="status" id="cst"></span><button class="btn pri" id="csave">Хадгалах</button></div>';
