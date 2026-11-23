@@ -297,8 +297,9 @@ function resizeFile(file,max){
     r.onerror=rej; r.readAsDataURL(file);
   });
 }
-function uploadFiles(files,name){
-  return Promise.all([].slice.call(files).map(function(f){ return resizeFile(f,1800).then(function(b64){ return api('apiUpload',auth(),b64,name||'zurag'); }); }));
+function uploadFiles(files,name,kind){
+  var au=auth(); if(kind!=='catalog'&&S.order) au.order=S.order;
+  return Promise.all([].slice.call(files).map(function(f){ return resizeFile(f,1800).then(function(b64){ return api('apiUpload',au,b64,name||'zurag',kind||'order'); }); }));
 }
 function thumbsHtml(ids,path,editable,cap){
   ids=ids||[];
@@ -792,7 +793,7 @@ function catEdit(item){
   m.addEventListener('change',function(e){
     var side=e.target.getAttribute('data-upside'); if(!side) return;
     $('#cst',m).textContent='Зураг байршуулж байна…';
-    uploadFiles(e.target.files,(x.code||'catalog')+'_'+side).then(function(ids){ x[side]=x[side].concat(ids); draw(); }).catch(function(err){ $('#cst',m).textContent=err.message; });
+    uploadFiles(e.target.files,(x.code||'catalog')+'_'+side,'catalog').then(function(ids){ x[side]=x[side].concat(ids); draw(); }).catch(function(err){ $('#cst',m).textContent=err.message; });
   });
   m.addEventListener('click',function(e){
     var t=e.target;

@@ -312,11 +312,13 @@ function apiSetSeq(auth, year, seq) {
 }
 
 /** Зураг байршуулах: base64 JPEG → Drive file id */
-function apiUpload(auth, b64, name) {
+function apiUpload(auth, b64, name, kind) {
   var ok = isAdmin_(auth) || (auth && auth.t && sheetsByCustToken_(auth.t).length);
   if (!ok) throw new Error('Эрх байхгүй');
   var folder = DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('FOLDER_ID'));
-  var sub = getSubFolder_(folder, 'Захиалга');
+  var isCat = kind === 'catalog' && isAdmin_(auth);
+  var sub = getSubFolder_(folder, isCat ? 'Каталог' : 'Захиалга');
+  if (!isCat && auth && auth.order) sub = getSubFolder_(sub, String(auth.order));
   var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', (name || 'zurag') + '.jpg');
   var f = sub.createFile(blob);
   try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (e) { }
