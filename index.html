@@ -87,7 +87,12 @@ main{padding:20px 0 80px}
 .stepper button.done{background:var(--ok-soft)}
 .stepper button.cur{background:var(--accent);color:#fff;border-color:var(--accent)}
 .stepper button.cur b{color:#cfe0f5}
-.stepper button.skip{opacity:.45}
+.stepper button.skip{opacity:.45;text-decoration:line-through}
+.stepper button[disabled]{cursor:default}
+.stagebox{border:1px solid var(--line2);border-radius:8px;padding:10px 12px;margin:0 0 14px;background:#fff}
+.stagehead{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.stagebox .stepper{margin:0 0 8px}
+.stagebox .stepper button{min-width:96px;font-size:12px}
 .szc{border:1px solid var(--line2);background:#fff;border-radius:5px;min-width:46px;padding:4px 8px;cursor:pointer;font-weight:500}
 .szc.on{background:#e00000;border-color:#e00000;color:#fff}
 .sizes tr.has td{background:#fff4f4}
@@ -225,7 +230,21 @@ var BOOT={mode:'loading'};
 /* ================= Тогтмол ================= */
 var SIZES_M = [['38','3XS'],['40','2XS'],['42','XS'],['44','S'],['46','M'],['48','L'],['50','XL'],['52','2XL'],['54','3XL'],['56','4XL'],['58','5XL'],['60','6XL'],['62','7XL'],['64','8XL']];
 var SIZES_F = [['38','2XS'],['40','XS'],['42','S'],['44','M'],['46','L'],['48','XL'],['50','2XL'],['52','3XL'],['54','4XL'],['56','5XL'],['58','6XL'],['60','7XL'],['62','8XL'],['64','9XL']];
-var STEPS = ['Захиалга хүлээн авах','Захиалгын мэдээлэл нягтлах','Захиалгын хуудас бөглөх','Захиалга баталгаажуулах','Эх загвар, скиз баталгаажуулах'];
+var STEPS = ['Захиалга хүлээн авах','Захиалгын мэдээлэл нягтлах','Захиалгын хуудас бөглөх','Захиалга баталгаажуулах','Эх загвар, скиз баталгаажуулах','Нэгж өртөг тооцох','Үйлдвэрлэлийн төлөвлөгөө','Төслийн үйлдвэрлэлд бэлтгэх','Материал хүлээн авах шалгалт','Үйлдвэрлэлд шилжсэн'];
+var STEP_WHO = ['Борлуулалтын менежер','Үйлдвэрийн дарга','ДТТ зохион бүтээгч','Борлуулалтын менежер','Дизайнер','Нягтлан','Үйлдвэрийн дарга','Зохион бүтээгч','Нярав, чанар шалгагч','Үйлдвэр'];
+var STEP_OPT = {5:'шинэ загвар үед',6:'гэрээний үнэгүй үед'};
+var TUSS_FLOW = 'https://new.tuss.io/company/algorithms/7698/';
+function stageBar(d,edit){
+  var cur=d.step||1, sk=d.skipSteps||[], log=d.stageLog||[], last=log[log.length-1];
+  var h='<div class="stagebox"><div class="stagehead"><b>Дамжлага '+cur+'/'+STEPS.length+': '+esc(STEPS[cur-1]||'')+'</b><span class="muted"> · хариуцагч: '+esc(STEP_WHO[cur-1]||'')+(last?' · '+esc(last.at)+(last.who?' · '+esc(last.who):''):'')+'</span><span class="sp"></span>'+
+    '<a class="btn sm" target="_blank" rel="noopener" href="'+esc(d.tussUrl||TUSS_FLOW)+'">TUSS-д нээх ↗</a></div><div class="stepper">';
+  h+=STEPS.map(function(t,i){ var n=i+1, c=n<cur?'done':n===cur?'cur':''; if(sk.indexOf(n)>=0) c+=' skip';
+    return '<button type="button" class="'+c+'"'+(edit?' data-step="'+n+'"':' disabled')+' title="'+esc(STEP_WHO[i])+'"><b>'+n+(STEP_OPT[n]?' · '+STEP_OPT[n]:'')+'</b>'+esc(t)+'</button>'; }).join('')+'</div>';
+  if(edit) h+='<div class="row" style="gap:14px;font-size:13px;flex-wrap:wrap">'+[5,6].map(function(n){ return '<label><input type="checkbox" data-skip="'+n+'"'+(sk.indexOf(n)>=0?' checked':'')+'> '+n+'-р дамжлага шаардлагагүй</label>'; }).join('')+
+    '<label style="flex:1;min-width:240px">TUSS ажлын холбоос <input data-k="tussUrl" value="'+esc(d.tussUrl||'')+'" placeholder="TUSS дээрх энэ захиалгын ажлын линк"></label></div>';
+  if(log.length) h+='<details class="muted" style="font-size:12.5px;margin-top:6px"><summary>Дамжлагын түүх ('+log.length+')</summary>'+log.slice().reverse().map(function(x){ return '<div>'+esc(x.at)+' · '+x.step+'. '+esc(STEPS[x.step-1]||'')+(x.who?' · '+esc(x.who):'')+'</div>'; }).join('')+'</details>';
+  return h+'</div>';
+}
 var POS4 = ['Баруун энгэр','Зүүн энгэр','Ар','Бусад'];
 var OPT = {
   khav: {title:'Хавчуурга', pos:POS4, types:['Олстой','Хавчуурга']},
@@ -361,7 +380,7 @@ function ordersHtml(){
   if(!groups.length) h+='<div class="panel muted">Захиалга алга. "+ Шинэ захиалга" дарж эхлүүлнэ үү.</div>';
   h+='<div class="olist">'+groups.map(function(o){
     return '<div class="ocard" data-open="'+esc(o.orderNo)+'"><div class="no">№ '+esc(o.orderNo)+'</div><div><div><b>'+esc(o.customer||'—')+'</b> <span class="muted">· хүлээж авсан '+esc(o.recvDate||'—')+' · өгөх '+esc(o.dueDate||'—')+'</span></div><div class="models">'+
-      o.sheets.map(function(s){ return '<div class="srow"><span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+(s.sent?'Үйлдвэрт илгээсэн':'Алхам '+s.step)+' · '+s.total+'ш</span>'+
+      o.sheets.map(function(s){ return '<div class="srow"><span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+'Дамжлага '+s.step+'/'+STEPS.length+(s.sent?' · үйлдвэрт илгээсэн':'')+': '+esc(STEPS[s.step-1]||'')+' · '+s.total+'ш</span>'+
         (s.sent&&s.factoryToken?'<button class="btn sm" data-cl="fac" data-id="'+esc(s.id)+'">Үйлдвэрийн линк</button><button class="btn sm" data-cl="view" data-id="'+esc(s.id)+'">Харах</button>':'<span class="muted" style="font-size:12px">үйлдвэрт илгээгээгүй</span>')+'</div>'; }).join('')+
       '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
   }).join('')+'</div>';
@@ -422,7 +441,7 @@ function editorHtml(){
   if(admin) tabs.push(['c','3. Дизайнер','Хуудас бөглөх, баталгаажуулах, скиз · дизайнер']);
   if(!admin&&S.etab==='c') S.etab='a';
   h+='<div class="ptabs">'+tabs.map(function(t){ return '<button data-et="'+t[0]+'" class="'+(S.etab===t[0]?'on':'')+'"><b>'+t[1]+'</b><small>'+t[2]+'</small></button>'; }).join('')+'</div>';
-  if(admin) h+='<div class="stepsel" style="margin:-8px 0 14px">Одоогийн алхам: <select data-k="step">'+STEPS.map(function(t,i){ return '<option value="'+(i+1)+'"'+((d.step||1)==i+1?' selected':'')+'>'+(i+1)+'. '+t+(i===4?' (шинэ загвар үед)':'')+'</option>'; }).join('')+'</select></div>';
+  h+=stageBar(d,admin);
   SECN=0;
   h+='<fieldset style="border:0;padding:0;margin:0" '+(lock?'disabled':'')+'>';
   if(S.etab==='a') h+=secGeneral(d)+secModels()+secLogo(d)+mtabsHtml()+secModelInfo(d)+secColors(d)+secPeople(d);
@@ -573,6 +592,7 @@ function bindEditor(){
     markDirty(k);
   };
   app.onchange=function(e){
+    if(e.target.hasAttribute&&e.target.hasAttribute('data-skip')){ var sn=Number(e.target.getAttribute('data-skip')), sk=(D().skipSteps||[]).filter(function(x){return x!==sn;}); if(e.target.checked) sk.push(sn); D().skipSteps=sk; markDirty('skipSteps'); rerender(); return; }
     if(e.target.matches&&e.target.matches('[data-upimg]')){
       var path=e.target.getAttribute('data-upimg'), files=e.target.files; if(!files.length) return;
       setStatus('Зураг байршуулж байна…');
@@ -593,7 +613,7 @@ function bindEditor(){
     if(t.hasAttribute('data-szsel')){ var q=t.getAttribute('data-szsel').split('|'); var cur=getPath(D(),'sizeSel.'+q[0]+'.'+q[1]+'.'+q[2]); setPath(D(),'sizeSel.'+q[0]+'.'+q[1]+'.'+q[2],!cur); t.classList.toggle('on',!cur); markDirty('sizeSel'); return; }
     if(t.hasAttribute('data-et')){ if(S.etab==='c'&&!isCust()){ var cc=catFind(D().modelCode,D().modelCat); if(cc&&!cc.design&&Object.keys(designOf(D())).length) saveDesign(true); } flushSave(); S.etab=t.getAttribute('data-et'); rerender(); window.scrollTo(0,0); return; }
     if(t.hasAttribute('data-mt')){ var i=Number(t.getAttribute('data-mt')); flushSave(); S.cur=i; S.status=''; rerender(); return; }
-    if(t.hasAttribute('data-step')){ D().step=Number(t.getAttribute('data-step')); markDirty('step'); rerender(); return; }
+    if(t.hasAttribute('data-step')){ var ns=Number(t.getAttribute('data-step')); if(ns!==(D().step||1)){ D().step=ns; var lg=(D().stageLog||[]).slice(); lg.push({step:ns,at:new Date(Date.now()+8*3600e3).toISOString().slice(0,16).replace('T',' '),who:who()}); D().stageLog=lg; markDirty('step'); markDirty('stageLog'); rerender(); } return; }
     switch(t.id){
       case 'back': leaveEditor(function(){ render(); }); break;
       case 'addSheet': addSheet(); break;
@@ -844,6 +864,7 @@ function factoryView(s,c,standalone){
   var h='<div class="fv"><div class="fv-screen">';
   h+='<div class="fv-head"><div><div style="font-size:12px;opacity:.65;letter-spacing:.06em;text-transform:uppercase">Захиалгын хуудас № '+esc(s.orderNo)+'</div><div class="big">'+esc(d.modelCode||'—')+' · '+esc(d.modelDesc||(c&&c.desc)||'')+'</div>'+
     '<div class="meta"><div><b>Захиалагч</b>'+esc(d.customer||'—')+'</div><div><b>Хүлээж авсан</b>'+esc(d.recvDate||'—')+'</div><div><b>Хүлээлгэн өгөх</b>'+esc(d.dueDate||'—')+'</div><div><b>Индүүний шаблон</b>'+esc(d.ironTpl||'—')+'</div><div><b>Нийт</b>'+total(d)+' ш</div></div></div></div>';
+  h+=stageBar(d,false);
   (d.revisions||[]).slice().reverse().slice(0,5).forEach(function(r,i){ h+='<div class="rev"><b>'+(i===0?'Сүүлийн өөрчлөлт':'Өөрчлөлт')+' · '+esc(r.at)+(r.who?' · '+esc(r.who):'')+'</b><br>'+esc(r.note)+'</div>'; });
   if(standalone) h+='<div class="fv-actions"><button class="btn" id="fvPrint">Хэвлэх</button></div>';
   if(imgs.length) h+='<div class="fv-gal">'+imgs.map(function(x,i){ return '<figure><img src="'+img(x.id,1600)+'" data-fi="'+i+'" loading="'+(i<2?'eager':'lazy')+'"><figcaption>'+esc(x.cap)+'</figcaption></figure>'; }).join('')+'</div>';
