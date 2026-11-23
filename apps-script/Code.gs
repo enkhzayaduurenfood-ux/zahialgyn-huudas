@@ -117,7 +117,7 @@ function importCatalog() {
 var API_FNS = { apiList: apiList, apiGetSheet: apiGetSheet, apiGetOrder: apiGetOrder, apiCreateOrder: apiCreateOrder,
   apiAddSheet: apiAddSheet, apiSave: apiSave, apiSendToFactory: apiSendToFactory, apiDeleteSheet: apiDeleteSheet,
   apiSetSeq: apiSetSeq, apiUpload: apiUpload, apiCatalog: apiCatalog, apiSaveCatalog: apiSaveCatalog,
-  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign };
+  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign, apiDeleteOrder: apiDeleteOrder };
 
 function doPost(e) {
   var out;
@@ -275,6 +275,34 @@ function apiDeleteSheet(auth, id) {
   writeRow_(r.row, r.obj);
   log_(auth.who, r.obj.orderNo, id, 'Устгасан', '');
   return true;
+}
+
+/** Захиалгыг бүх загварын хуудастай нь устгах: Sheet-ээс мөрүүдийг устгаж, захиалгын зургийг Drive-ийн хогийн сав руу */
+function apiDeleteOrder(auth, orderNo) {
+  requireAdmin_(auth);
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var rows = allRows_().filter(function (r) { return r.v[1] === orderNo; });
+    var ids = {};
+    rows.forEach(function (r) {
+      var d = {}; try { d = JSON.parse(r.v[18] || '{}'); } catch (e) { }
+      (d.photos || []).concat(d.matImgs || []).forEach(function (id) { ids[id] = 1; });
+      var lg = d.logo || {};
+      Object.keys(lg).forEach(function (p) { ((lg[p] || {}).imgs || []).forEach(function (id) { ids[id] = 1; }); });
+    });
+    // каталогийн зургийг хэзээ ч устгахгүй
+    var catIds = {};
+    allCatalog_().forEach(function (c) { c.front.concat(c.back).forEach(function (id) { catIds[id] = 1; }); });
+    var trashed = 0;
+    Object.keys(ids).forEach(function (id) {
+      if (catIds[id]) return;
+      try { DriveApp.getFileById(id).setTrashed(true); trashed++; } catch (e) { }
+    });
+    var sh = ss_().getSheetByName(SHEET_ORDERS);
+    rows.map(function (r) { return r.row; }).sort(function (a, b) { return b - a; }).forEach(function (n) { sh.deleteRow(n); });
+    log_(auth.who, orderNo, '', 'Захиалга устгасан', rows.length + ' хуудас, ' + trashed + ' зураг хогийн сав руу');
+    return { sheets: rows.length, images: trashed };
+  } finally { lock.releaseLock(); }
 }
 
 function apiSetSeq(auth, year, seq) {

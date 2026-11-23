@@ -362,7 +362,7 @@ function ordersHtml(){
     return '<div class="ocard" data-open="'+esc(o.orderNo)+'"><div class="no">№ '+esc(o.orderNo)+'</div><div><div><b>'+esc(o.customer||'—')+'</b> <span class="muted">· хүлээж авсан '+esc(o.recvDate||'—')+' · өгөх '+esc(o.dueDate||'—')+'</span></div><div class="models">'+
       o.sheets.map(function(s){ return '<div class="srow"><span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+(s.sent?'Үйлдвэрт илгээсэн':'Алхам '+s.step)+' · '+s.total+'ш</span>'+
         (s.sent&&s.factoryToken?'<button class="btn sm" data-cl="fac" data-id="'+esc(s.id)+'">Үйлдвэрийн линк</button><button class="btn sm" data-cl="view" data-id="'+esc(s.id)+'">Харах</button>':'<span class="muted" style="font-size:12px">үйлдвэрт илгээгээгүй</span>')+'</div>'; }).join('')+
-      '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><button class="btn sm danger" data-cl="del" data-id="'+esc(o.sheets[0].id)+'">Устгах</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
+      '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
   }).join('')+'</div>';
   return h;
 }
@@ -631,15 +631,13 @@ function saveRevision(){
   flushSave(n).then(function(){ toast('Засвар хадгалагдлаа. Үйлдвэрийн линк шинэчлэгдсэн.'); rerender(); });
 }
 function deleteOrder(no){
-  var ids=S.list.filter(function(x){ return x.orderNo===no; }).map(function(x){ return x.id; });
-  if(S.order===no) S.sheets.forEach(function(s){ if(ids.indexOf(s.id)<0) ids.push(s.id); });
-  if(!ids.length) return;
-  if(!confirm('№ '+no+' захиалгыг ('+ids.length+' загварын хуудастай нь) устгах уу?\n\nУстгасан захиалга жагсаалтаас алга болно. Өгөгдлийн санд (Google Sheet) "Устгасан" гэж тэмдэглэгдэж хадгалагдана.')) return;
+  var n=S.sheets.length;
+  if(!confirm('Итгэлтэй байна уу?\n\n№ '+no+' захиалга ('+n+' загварын хуудас) бүрмөсөн устгагдана:\n• Google Sheet-ээс мөрүүд нь устна\n• Захиалгад оруулсан зургууд Drive-ийн хогийн сав руу шилжинэ\n\nЭнэ үйлдлийг буцаах боломжгүй.')) return;
+  clearTimeout(S.saveTimer); S.pending={};
   toast('Устгаж байна…');
-  ids.reduce(function(p,id){ return p.then(function(){ return api('apiDeleteSheet',auth(),id); }); },Promise.resolve()).then(function(){
+  api('apiDeleteOrder',auth(),no).then(function(r){
     S.list=S.list.filter(function(x){ return x.orderNo!==no; });
-    if(S.order===no){ S.order=null; S.sheets=[]; S.pending={}; clearTimeout(S.saveTimer); }
-    render(); toast('№ '+no+' захиалга устгагдлаа');
+    S.order=null; S.sheets=[]; render(); toast('№ '+no+' устгагдлаа ('+r.sheets+' хуудас, '+r.images+' зураг)');
   }).catch(function(e){ alert('Устгаж чадсангүй: '+e.message); });
 }
 function delSheet(){ if(!confirm('Энэ загварын хуудсыг устгах уу?')) return; api('apiDeleteSheet',auth(),curSheet().id).then(function(){ var id=curSheet().id; S.list=S.list.filter(function(x){return x.id!==id;}); S.sheets.splice(S.cur,1); S.pending={}; if(!S.sheets.length){ S.order=null; } S.cur=0; render(); }); }
