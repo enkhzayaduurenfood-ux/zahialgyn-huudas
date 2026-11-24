@@ -88,6 +88,11 @@ main{padding:20px 0 80px}
 .stepper button.cur{background:var(--accent);color:#fff;border-color:var(--accent)}
 .stepper button.cur b{color:#cfe0f5}
 .stepper button.skip{opacity:.45}
+.dd{position:relative}.dd>summary{list-style:none;cursor:pointer;border:1px solid var(--line2);border-radius:6px;padding:6px 26px 6px 10px;min-height:34px;background:#fff;white-space:nowrap;font-size:13.5px}
+.dd>summary::-webkit-details-marker{display:none}.dd>summary::after{content:"▾";position:absolute;right:8px;top:8px;color:var(--muted)}
+.dd>div{position:static;margin-top:4px;background:#fff;border:1px solid var(--line2);border-radius:6px;box-shadow:var(--shadow);padding:6px;min-width:120px}
+.dd input[type=checkbox]{width:16px;height:16px;min-height:0;padding:0;margin:0}
+.dd label{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:4px}.dd label:hover{background:#f3f4f2}
 .szc{border:1px solid var(--line2);background:#fff;border-radius:5px;min-width:46px;padding:4px 8px;cursor:pointer;font-weight:500}
 .szc.on{background:#e00000;border-color:#e00000;color:#fff}
 .sizes tr.has td{background:#fff4f4}
@@ -540,16 +545,18 @@ function secModel(d){
 }
 var DCOLS={
   orts:[['name','Орц (жишээ нь Их бие-180см)'],['color','Өнгө-Өргөн','28%'],['code','Код','18%']],
-  tpl:[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','24%'],['clo','Зурах/CLO','12%','chk']],
+  tpl:[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','24%'],['clo','Зурах/CLO','16%','drw']],
   aux:[['name','Материал (жишээ нь Товч-2ш)'],['color','Өнгө','20%'],['code','Код','16%'],['lengths','Размер бүрийн урт (жишээ нь 38р-74.5см, 40р-75см)','34%','ta']]
 };
+function drawTxt(r){ var a=[]; if(r&&r.zur) a.push('Зурах'); if(r&&r.clo) a.push('CLO'); return a.join(', '); }
+function drawCell(attr,base,r){ return '<details class="dd"><summary>'+(drawTxt(r)||'Сонгох')+'</summary><div><label><input type="checkbox" '+attr+'="'+base+'.zur" '+(r.zur?'checked':'')+'> Зурах</label><label><input type="checkbox" '+attr+'="'+base+'.clo" '+(r.clo?'checked':'')+'> CLO</label></div></details>'; }
 var ORDER_COLS={orts:['color','code'],aux:['color','code']};
 function isOrderCol(k,c){ return (ORDER_COLS[k]||[]).indexOf(c)>=0; }
 function designLocked(s){ var c=catFind(s.data.modelCode,s.data.modelCat); return !!(c&&c.design)&&!S.dEdit[s.id]; }
 function rowsTable(key,cols,rows,addLabel,ro){
-  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+(isOrderCol(key,c[0])?' <span class="badge acc" style="font-weight:400">энэ захиалгад</span>':'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r,i){ return '<tr>'+cols.map(function(c){ return isOrderCol(key,c[0])?'<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+inp(key+'.'+i+'.'+c[0],r[c[0]])+'</td>':'<td style="white-space:pre-wrap">'+(c[3]==='chk'?(r[c[0]]?'✓':''):esc(r[c[0]]||''))+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
+  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+(isOrderCol(key,c[0])?' <span class="badge acc" style="font-weight:400">энэ захиалгад</span>':'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r,i){ return '<tr>'+cols.map(function(c){ return isOrderCol(key,c[0])?'<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+inp(key+'.'+i+'.'+c[0],r[c[0]])+'</td>':'<td style="white-space:pre-wrap">'+(c[3]==='drw'?esc(drawTxt(r)):esc(r[c[0]]||''))+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
   return '<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
-    (rows||[]).map(function(r,i){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='chk'?'<input type="checkbox" data-k="'+key+'.'+i+'.'+c[0]+'" '+(r[c[0]]?'checked':'')+' style="width:20px;height:20px">':c[3]==='ta'?'<textarea data-k="'+key+'.'+i+'.'+c[0]+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':inp(key+'.'+i+'.'+c[0],r[c[0]]))+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-rm="'+key+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
+    (rows||[]).map(function(r,i){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='drw'?drawCell('data-k',key+'.'+i,r):c[3]==='ta'?'<textarea data-k="'+key+'.'+i+'.'+c[0]+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':inp(key+'.'+i+'.'+c[0],r[c[0]]))+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-rm="'+key+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
     '</table></div><button class="btn sm mt" data-add="'+key+'">'+addLabel+'</button>';
 }
 function secOrts(d){ return sec('Д2','Эсгүүр — материал, нэгж орц, өнгө',rowsTable('orts',DCOLS.orts,d.orts,'+ Мөр нэмэх',designLocked(curSheet()))); }
@@ -832,7 +839,7 @@ function catEdit(item){
       [['orts','Эсгүүр — нэгж орц'],['tpl','Эсгүүрт ашиглах шаблон, шаблоны код'],['aux','Туслах материал']].map(function(g){
         var CC=DCOLS[g[0]].filter(function(c){ return !isOrderCol(g[0],c[0]); });
         return '<div class="mt"><label class="f" style="font-size:13.5px;color:var(--ink)">'+g[1]+'</label><div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+CC.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
-          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+CC.map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='chk'?'<input type="checkbox" data-df="'+pth+'" '+(r[c[0]]?'checked':'')+' style="width:20px;height:20px">':c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
+          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+CC.map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='drw'?drawCell('data-df',g[0]+'.'+i,r):c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
           '</table></div><button class="btn sm mt" data-dadd="'+g[0]+'">+ Мөр нэмэх</button></div>';
       }).join('')+
       '<div class="row mt">'+(item?'<button class="btn danger" id="cdel">Устгах</button>':'')+'<span class="sp"></span><span class="status" id="cst"></span><button class="btn pri" id="csave">Хадгалах</button></div>';
@@ -906,7 +913,7 @@ function factoryView(s,c,standalone){
   h+='<div class="fv-card"><h3>Өнгө ба загвар</h3><dl class="kv"><dt>Их бие</dt><dd>'+esc(col.body||'—')+'</dd><dt>Оруулга</dt><dd>'+esc(col.insert||'—')+'</dd><dt>Дотор</dt><dd>'+esc(col.lining||'—')+'</dd>'+(c&&c.ulger?'<dt>Үлгэр</dt><dd style="font-weight:400">'+esc(c.ulger)+'</dd>':'')+'</dl></div>';
   // Орц
   if((d.orts||[]).length) h+='<div class="fv-card full"><h3>Эсгүүр — материал, нэгж орц, өнгө</h3><table class="t"><tr><th>Орц</th><th>Өнгө-Өргөн</th><th>Код</th></tr>'+d.orts.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.color)+'</td><td><b>'+esc(r.code)+'</b></td></tr>'; }).join('')+'</table></div>';
-  if((d.tpl||[]).length) h+='<div class="fv-card full"><h3>Эсгүүрт ашиглах шаблон</h3><table class="t"><tr><th>Шаблон</th><th>Код</th><th>Зурах/CLO</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td style="width:30%"><b>'+esc(r.code)+'</b></td><td style="width:14%">'+(r.clo?'✓':'')+'</td></tr>'; }).join('')+'</table></div>';
+  if((d.tpl||[]).length) h+='<div class="fv-card full"><h3>Эсгүүрт ашиглах шаблон</h3><table class="t"><tr><th>Шаблон</th><th>Код</th><th>Зурах/CLO</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td style="width:30%"><b>'+esc(r.code)+'</b></td><td style="width:14%">'+esc(drawTxt(r))+'</td></tr>'; }).join('')+'</table></div>';
   if((d.aux||[]).length) h+='<div class="fv-card full"><h3>Туслах материал</h3><table class="t"><tr><th>Материал</th><th>Өнгө</th><th>Код</th></tr>'+d.aux.map(function(r){
     var ln=(r.lengths||'').split(/[,;\n]+/).map(function(x){return x.trim();}).filter(String);
     return '<tr><td>'+esc(r.name)+(ln.length?'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'+ln.map(function(x){ return '<span class="badge">'+esc(x)+'</span>'; }).join('')+'</div>':'')+'</td><td>'+esc(r.color)+'</td><td><b>'+esc(r.code)+'</b></td></tr>'; }).join('')+'</table></div>';
@@ -935,7 +942,7 @@ function printSheet(s,c,imgs){
   if(lrows.length) h+='<table><tr><th>Лого байрлал</th><th>Төрөл</th><th>Өнгө</th><th>Хэмжээ/см</th><th>Тайлбар</th></tr>'+lrows.map(function(p){ var x=lg[p]; return '<tr><td>'+p+'</td><td>'+esc(x.type||'')+'</td><td>'+esc(x.color||'')+'</td><td>'+esc(x.size||'')+'</td><td>'+esc(x.note||'')+'</td></tr>'; }).join('')+'</table>';
   h+='<table><tr><td style="width:42%"><div class="imgs">'+imgs.slice(0,4).map(function(x){ return '<img src="'+img(x.id,1000)+'">'; }).join('')+'</div></td><td>';
   h+='<table><tr><th>Орц</th><th>Өнгө-Өргөн</th><th>Код</th></tr>'+(d.orts||[]).map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.code)+'</td></tr>'; }).join('')+'</table>';
-  if((d.tpl||[]).length) h+='<table><tr><th>Эсгүүр-ашиглах шаблон</th><th>Код</th><th>Зурах/CLO</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code)+'</td><td>'+(r.clo?'✓':'')+'</td></tr>'; }).join('')+'</table>';
+  if((d.tpl||[]).length) h+='<table><tr><th>Эсгүүр-ашиглах шаблон</th><th>Код</th><th>Зурах/CLO</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code)+'</td><td>'+esc(drawTxt(r))+'</td></tr>'; }).join('')+'</table>';
   if((d.aux||[]).length) h+='<table><tr><th>Туслах материал</th><th>Өнгө</th><th>Код</th></tr>'+d.aux.map(function(r){ return '<tr><td>'+esc(r.name)+(r.lengths?'<br><small>'+esc(r.lengths)+'</small>':'')+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.code)+'</td></tr>'; }).join('')+'</table>';
   var szRows=sizeRows(d);
 
@@ -969,6 +976,8 @@ function start(){
     render();
   }).catch(function(e){ BOOT={mode:'error',error:'Сервертэй холбогдож чадсангүй: '+e.message}; S.mode='error'; render(); });
 }
+document.addEventListener('change',function(e){ var dd=e.target.closest&&e.target.closest('.dd'); if(dd){ var boxes=dd.querySelectorAll('input'); dd.querySelector('summary').textContent=drawTxt({zur:boxes[0].checked,clo:boxes[1].checked})||'Сонгох'; } });
+document.addEventListener('click',function(e){ $$('details.dd[open]').forEach(function(d){ if(!d.contains(e.target)) d.open=false; }); });
 window.addEventListener('beforeunload',function(e){ if(Object.keys(S.pending).length){ flushSave(); e.preventDefault(); e.returnValue=''; } });
 start();
 </script>
