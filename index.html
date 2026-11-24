@@ -207,7 +207,8 @@ table.t input,table.t select{min-height:34px;padding:5px 8px}
   .ps .hd td{background:#eef3e6}
   .ps .imgs{display:flex;gap:4px;flex-wrap:wrap}
   .ps .imgs img{height:62mm;width:auto;max-width:48%;object-fit:contain;border:1px solid #999}
-  .ps .page{page-break-after:always}
+  .ps .page{page-break-after:auto}
+  .fvs ~ .fvs .ps{break-before:page;page-break-before:always}
   .ps .page:last-child{page-break-after:auto}
   .ps .sign{margin-top:8px;line-height:2}
 }
@@ -253,7 +254,8 @@ function api(fn){ var args=[].slice.call(arguments,1);
   return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:fn,args:args}),redirect:'follow'})
     .then(function(r){ return r.json(); }).then(function(j){ if(!j.ok) throw new Error(j.error||'Алдаа'); return j.data; }); }
 function getPath(o,p){ return p.split('.').reduce(function(a,k){ return a==null?undefined:a[k]; },o); }
-function setPath(o,p,v){ var ks=p.split('.'),x=o; for(var i=0;i<ks.length-1;i++){ var k=ks[i]; if(x[k]==null||typeof x[k]!=='object') x[k]= /^\d+$/.test(ks[i+1])?[]:{}; x=x[k]; } x[ks[ks.length-1]]=v; }
+var ARR_KEYS=['people','extraSizes','orts','tpl','aux','photos','imgs','matImgs'];
+function setPath(o,p,v){ var ks=p.split('.'),x=o; for(var i=0;i<ks.length-1;i++){ var k=ks[i]; if(x[k]==null||typeof x[k]!=='object') x[k]= (ARR_KEYS.indexOf(k)>=0&&/^\d+$/.test(ks[i+1]))?[]:{}; x=x[k]; } x[ks[ks.length-1]]=v; }
 function toast(m){ var t=document.createElement('div'); t.className='toast'; t.textContent=m; document.body.appendChild(t); setTimeout(function(){t.remove();},2600); }
 function total(d){ var t=0; ['M','F'].forEach(function(g){ var s=(d.sizes||{})[g]||{}; for(var k in s) t+=Number(s[k])||0; }); (d.extraSizes||[]).forEach(function(x){ t+=Number(x.qty)||0; }); return t; }
 function gTotal(d,g){ var t=0,s=(d.sizes||{})[g]||{}; for(var k in s) t+=Number(s[k])||0; (d.extraSizes||[]).forEach(function(x){ if(x.gender===g) t+=Number(x.qty)||0; }); return t; }
@@ -269,6 +271,7 @@ function copy(text){
 }
 function showLink(text){ modal('<div class="mh"><h2>Линк</h2><span class="sp"></span><button class="btn ghost" data-close>✕</button></div><p class="muted">Доорх линкийг хуулж авна уу:</p><input value="'+esc(text)+'" onfocus="this.select()" readonly>', 'sm'); }
 function factoryUrl(s){ return BOOT.base+'?v=f&t='+s.factoryToken; }
+function orderFactoryUrl(list){ var s=(list||[]).filter(function(x){ return x.sent&&x.factoryToken; })[0]; return s?BOOT.base+'?v=f&a=1&t='+s.factoryToken:''; }
 function custUrl(s){ return BOOT.base+'?v=c&t='+s.custToken; }
 
 /* ================= Modal / Lightbox ================= */
@@ -313,6 +316,18 @@ function thumbsHtml(ids,path,editable,cap){
 function render(){
   var app=$('#app');
   if(S.mode==='error'){ app.innerHTML='<div class="err-page"><h1>Уучлаарай</h1><p class="muted">'+esc(BOOT.error)+'</p></div>'; return; }
+  if(S.mode==='factory'&&BOOT.sheets){
+    var L=BOOT.sheets, fsel=S.fsel==null?-1:S.fsel;
+    if(!L.length){ app.innerHTML='<div class="err-page"><h1>Үйлдвэрт илгээсэн загвар алга</h1></div>'; return; }
+    var hh='<div class="fv no-print" style="padding-bottom:0"><div class="row" style="gap:8px"><div class="cond" style="font-size:20px;font-weight:700">Захиалга № '+esc(L[0].orderNo)+' · '+esc(L[0].data.customer||'')+'</div><span class="sp"></span><button class="btn pri" id="fvPrintAll">Хэвлэх / PDF</button></div>'+
+      '<div class="chips" style="margin-top:10px"><button class="chip '+(fsel<0?'on':'')+'" data-fsel="-1">Бүгд ('+L.length+')</button>'+L.map(function(s,i){ return '<button class="chip '+(fsel===i?'on':'')+'" data-fsel="'+i+'">'+esc(s.data.modelCode||('Загвар '+(i+1)))+' · '+total(s.data)+'ш</button>'; }).join('')+'</div></div>';
+    hh+=L.map(function(s,i){ return '<div class="fvs" data-si="'+i+'" style="'+(fsel>=0&&fsel!==i?'display:none':'')+'">'+factoryView(s,BOOT.catalogs[i],false)+'</div>'; }).join('');
+    app.innerHTML=hh;
+    $$('.fvs').forEach(function(el){ var i=Number(el.getAttribute('data-si')); bindFactory(L[i],BOOT.catalogs[i],el); });
+    $$('[data-fsel]').forEach(function(b){ b.onclick=function(){ S.fsel=Number(b.getAttribute('data-fsel')); render(); window.scrollTo(0,0); }; });
+    $('#fvPrintAll').onclick=function(){ window.print(); };
+    return;
+  }
   if(S.mode==='factory'){ app.innerHTML=factoryView(BOOT.sheet,BOOT.catalog,true); bindFactory(BOOT.sheet,BOOT.catalog); return; }
   if(S.mode==='customer'){
     if(!S.order){ S.sheets=BOOT.sheets; S.order=BOOT.sheets[0].orderNo; S.cur=0; S.submitted=S.sheets.some(function(s){ return s.data.custSubmitted; }); }
@@ -363,7 +378,7 @@ function ordersHtml(){
     return '<div class="ocard" data-open="'+esc(o.orderNo)+'"><div class="no">№ '+esc(o.orderNo)+'</div><div><div><b>'+esc(o.customer||'—')+'</b> <span class="muted">· хүлээж авсан '+esc(o.recvDate||'—')+' · өгөх '+esc(o.dueDate||'—')+'</span></div><div class="models">'+
       o.sheets.map(function(s){ return '<div class="srow"><span class="badge '+(s.sent?'ok':'acc')+'">'+esc(s.modelCode||'Загвар')+' · '+(s.sent?'Үйлдвэрт илгээсэн':'Алхам '+s.step)+' · '+s.total+'ш</span>'+
         (s.sent&&s.factoryToken?'<button class="btn sm" data-cl="fac" data-id="'+esc(s.id)+'">Үйлдвэрийн линк</button><button class="btn sm" data-cl="view" data-id="'+esc(s.id)+'">Харах</button>':'<span class="muted" style="font-size:12px">үйлдвэрт илгээгээгүй</span>')+'</div>'; }).join('')+
-      '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
+      '</div></div><div class="oact">'+(o.sheets.some(function(s){return s.custSubmitted;})?'<span class="badge ok">Захиалагч илгээсэн</span>':'')+(o.sheets.some(function(s){return s.sent&&s.factoryToken;})?'<button class="btn sm ok" data-cl="facall" data-id="'+esc(o.sheets[0].id)+'">Үйлдвэрийн линк (бүгд)</button>':'')+'<button class="btn sm" data-cl="cust" data-id="'+esc(o.sheets[0].id)+'">Захиалагчийн линк</button><span class="muted" style="font-size:12px">'+o.sheets.length+' хуудас</span></div></div>';
   }).join('')+'</div>';
   return h;
 }
@@ -373,6 +388,7 @@ function bindOrders(){
   $$('[data-open]').forEach(function(c){ c.onclick=function(){ openOrder(c.getAttribute('data-open')); }; });
   $$('[data-cl]').forEach(function(b){ b.onclick=function(e){ e.stopPropagation(); var s=S.list.filter(function(x){ return x.id===b.getAttribute('data-id'); })[0]; if(!s) return; var k=b.getAttribute('data-cl');
     if(k==='del'){ deleteOrder(s.orderNo); return; }
+    if(k==='facall'){ copy(orderFactoryUrl(S.list.filter(function(x){ return x.orderNo===s.orderNo; }))); return; }
     if(k==='cust') copy(custUrl(s)); else if(k==='fac') copy(factoryUrl(s)); else window.open(factoryUrl(s),'_blank'); }; });
   $('#newOrder').onclick=newOrderModal;
 }
@@ -413,8 +429,10 @@ function editorHtml(){
   h+='<div><h1>Захиалгын хуудас № '+esc(s.orderNo)+'</h1><div class="muted">'+esc(d.customer||'Захиалагч бичигдээгүй')+'</div></div><span class="sp"></span>';
   if(admin){
     h+='<button class="btn" id="custLink" title="Захиалагч өөрөө бөглөх линк">Захиалагчийн линк</button><button class="btn danger" id="delOrder" title="Бүх загвартай нь устгана">Захиалга устгах</button>';
-    if(s.sent) h+='<button class="btn ok" id="facLink">Үйлдвэрийн линк хуулах</button><button class="btn" id="facOpen">Харах</button>';
-    else h+='<button class="btn ok" id="send">Үйлдвэрт илгээх</button>';
+    var anySent=S.sheets.some(function(x){ return x.sent; }), allSent=S.sheets.every(function(x){ return x.sent; });
+    if(anySent) h+='<button class="btn ok" id="facAll" title="Захиалгын бүх загвар нэг линкэнд">Үйлдвэрийн линк (бүх загвар)</button><button class="btn" id="facAllOpen">Харах</button>';
+    if(!allSent) h+='<button class="btn '+(anySent?'':'ok')+'" id="send">Үйлдвэрт илгээх</button>';
+    if(s.sent) h+='<button class="btn sm" id="facLink" title="Зөвхөн энэ загвар">Энэ загварын линк</button>';
   }
   h+='</div>';
   if(s.sent) h+='<div class="rev" style="margin:0 0 14px">'+(admin?'Энэ хуудас <b>'+esc(s.sent)+'</b>-нд үйлдвэрт илгээгдсэн. Засвар хийвэл хадгалахдаа юу өөрчилснөө тайлбарлана. Үйлдвэрийн линк шинэчлэгдэнэ.':'Энэ хуудас үйлдвэрт илгээгдсэн тул зөвхөн харах боломжтой.')+'</div>';
@@ -457,7 +475,8 @@ function secSizes(d){
     ex.map(function(x,i){ return '<tr><td>'+inp('extraSizes.'+i+'.label',x.label)+'</td><td><select data-k="extraSizes.'+i+'.gender"><option value="M"'+(x.gender==='M'?' selected':'')+'>ЭР</option><option value="F"'+(x.gender==='F'?' selected':'')+'>ЭМ</option></select></td><td style="width:90px">'+inp('extraSizes.'+i+'.qty',x.qty,'type="number" min="0" data-sz')+'</td><td>'+inp('extraSizes.'+i+'.note',x.note)+'</td><td><button class="btn ghost sm" data-rm="extraSizes" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
     '</table><button class="btn sm mt" data-add="extraSizes">+ Тусгай размер</button>';
   h+='<div class="mt tot">Бүгд нийт: <span id="totAll">'+total(d)+'</span> ш</div>';
-  return sec(6,'Хүйс, размер, тоо',h);
+  var top=S.sheets.length>1?'<label class="panel row" style="box-shadow:none;padding:10px 12px;margin-bottom:12px;gap:10px;cursor:pointer;background:'+(d.sameSizes?'var(--accent-soft)':'#fafbfa')+'"><input type="checkbox" data-samesz '+(d.sameSizes?'checked':'')+'><span><b>Бүх загварт ижил размер, тоо</b><br><span class="muted" style="font-size:12.5px">Асаавал энд оруулсан размер, тоо, шошго '+S.sheets.length+' загварт бүгдэд нь адилхан хуулагдаж, хамт өөрчлөгдөнө.</span></span></label>':'';
+  return sec(6,'Хүйс, размер, тоо',top+h);
 }
 function secOpt(key,d,n){
   var o=OPT[key], v=d[key]||{};
@@ -507,23 +526,23 @@ function secModel(d){
       (has?'<div class="row"><b>Code-оос дизайн бөглөгдсөн</b><span class="sp"></span><label class="row" style="gap:8px;cursor:pointer;font-weight:500"><input type="checkbox" data-dtoggle '+(lk?'':'checked')+'> Засах</label></div><p class="muted" style="margin:4px 0 0;font-size:13px">Орц, шаблон, туслах материал Code каталогоос автоматаар орсон. Өөрчлөх бол <b>Засах</b>-ыг асаана. Засварыг Code-д хадгалах бол <b>Code-д хадгалах</b> дарна, эс бөгөөс зөвхөн энэ захиалгад үлдэнэ.</p>'+(lk?'':'<div class="row mt" style="gap:6px"><button class="btn pri" id="saveDesign">Code-д хадгалах</button><button class="btn" id="loadDesign">Code-ийн хувилбар руу буцаах</button></div>')
       :'<b>Энэ загварын дизайн Code-д алга</b><p class="muted" style="margin:4px 0 8px;font-size:13px">Анх удаа бөглөж буй мэдээлэл үйлдвэрт илгээх үед Code-д автоматаар хадгалагдана. Дараа нь энэ загварыг сонгоход шууд бөглөгдөж ирнэ.</p><button class="btn pri" id="saveDesign">Одоо Code-д хадгалах</button>')+
     '</div>'+
-    '<div class="grid g3 mt">'+field('Загварын дугаар (гараар)',inp('modelCode',d.modelCode))+field('Индүүний шаблон',inp('ironTpl',d.ironTpl,lk?'disabled':''))+field('Зурах / CLO',lk?'<input value="'+esc(d.draw||'')+'" disabled>':sel('draw',d.draw,['Зурах','CLO']))+'</div>'+
+    '<div class="grid g3 mt">'+field('Загварын дугаар (гараар)',inp('modelCode',d.modelCode))+'<div></div><div></div></div><div class="grid g3 mt">'+field('Индүүний шаблон (код)',inp('ironTpl',d.ironTpl,lk?'disabled':''))+field('Оёдлын шаблон (код)',inp('sewTpl',d.sewTpl,lk?'disabled':''))+field('Халаасны шаблон (код)',inp('pocketTpl',d.pocketTpl,lk?'disabled':''))+'</div>'+
     '<label class="row mt" style="gap:8px;cursor:pointer"><input type="checkbox" data-k="isNew" '+(d.isNew?'checked':'')+'> Шинэ загвар (эх загвар боловсруулах, скиз баталгаажуулах шаардлагатай)</label>'+
     '';
   return sec('Д1','Загварын дугаар, шаблон',body);
 }
 var DCOLS={
   orts:[['name','Орц (жишээ нь Их бие-180см)'],['color','Өнгө-Өргөн','28%'],['code','Код','18%']],
-  tpl:[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','28%']],
+  tpl:[['name','Шаблон (жишээ нь Дотор, халаасны уут)'],['code','Шаблоны код','24%'],['clo','Зурах/CLO','12%','chk']],
   aux:[['name','Материал (жишээ нь Товч-2ш)'],['color','Өнгө','20%'],['code','Код','16%'],['lengths','Размер бүрийн урт (жишээ нь 38р-74.5см, 40р-75см)','34%','ta']]
 };
 var ORDER_COLS={orts:['color','code'],aux:['color','code']};
 function isOrderCol(k,c){ return (ORDER_COLS[k]||[]).indexOf(c)>=0; }
 function designLocked(s){ var c=catFind(s.data.modelCode,s.data.modelCat); return !!(c&&c.design)&&!S.dEdit[s.id]; }
 function rowsTable(key,cols,rows,addLabel,ro){
-  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+(isOrderCol(key,c[0])?' <span class="badge acc" style="font-weight:400">энэ захиалгад</span>':'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r,i){ return '<tr>'+cols.map(function(c){ return isOrderCol(key,c[0])?'<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+inp(key+'.'+i+'.'+c[0],r[c[0]])+'</td>':'<td style="white-space:pre-wrap">'+esc(r[c[0]]||'')+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
+  if(ro) return (rows&&rows.length?'<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1].replace(/ \(жишээ.*\)/,'')+(isOrderCol(key,c[0])?' <span class="badge acc" style="font-weight:400">энэ захиалгад</span>':'')+'</th>'; }).join('')+'</tr>'+rows.map(function(r,i){ return '<tr>'+cols.map(function(c){ return isOrderCol(key,c[0])?'<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+inp(key+'.'+i+'.'+c[0],r[c[0]])+'</td>':'<td style="white-space:pre-wrap">'+(c[3]==='chk'?(r[c[0]]?'✓':''):esc(r[c[0]]||''))+'</td>'; }).join('')+'</tr>'; }).join('')+'</table></div>':'<p class="muted">—</p>');
   return '<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+cols.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
-    (rows||[]).map(function(r,i){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-k="'+key+'.'+i+'.'+c[0]+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':inp(key+'.'+i+'.'+c[0],r[c[0]]))+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-rm="'+key+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
+    (rows||[]).map(function(r,i){ return '<tr>'+cols.map(function(c){ return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='chk'?'<input type="checkbox" data-k="'+key+'.'+i+'.'+c[0]+'" '+(r[c[0]]?'checked':'')+' style="width:20px;height:20px">':c[3]==='ta'?'<textarea data-k="'+key+'.'+i+'.'+c[0]+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':inp(key+'.'+i+'.'+c[0],r[c[0]]))+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-rm="'+key+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
     '</table></div><button class="btn sm mt" data-add="'+key+'">'+addLabel+'</button>';
 }
 function secOrts(d){ return sec('Д2','Эсгүүр — материал, нэгж орц, өнгө',rowsTable('orts',DCOLS.orts,d.orts,'+ Мөр нэмэх',designLocked(curSheet()))); }
@@ -547,7 +566,8 @@ function markDirty(path){
   var top=path.split('.')[0];
   S.pending[top]=true;
   // захиалгын түвшний талбарыг бусад таб-д хуулна
-  if(['customer','recvDate','dueDate','logo'].indexOf(top)>=0) S.sheets.forEach(function(x){ x.data[top]=D()[top]; });
+  if(['customer','recvDate','dueDate','logo','sameSizes'].indexOf(top)>=0) S.sheets.forEach(function(x){ x.data[top]=D()[top]; });
+  if(D().sameSizes&&['sizes','sizeSel','extraSizes'].indexOf(top)>=0) S.sheets.forEach(function(x){ if(x!==curSheet()) x.data[top]=JSON.parse(JSON.stringify(D()[top]||(top==='extraSizes'?[]:{}))); });
   if(curSheet().sent&&!isCust()){ setStatus('Хадгалаагүй өөрчлөлт байна'); return; }
   setStatus('Хадгалж байна…');
   clearTimeout(S.saveTimer); S.saveTimer=setTimeout(flushSave,1200);
@@ -580,6 +600,7 @@ function bindEditor(){
         .catch(function(err){ setStatus('Зураг байршуулж чадсангүй: '+err.message,true); });
       return;
     }
+    if(e.target.hasAttribute&&e.target.hasAttribute('data-samesz')){ var on=e.target.checked; if(on&&!confirm('Энэ загварын размер, тоог бусад '+(S.sheets.length-1)+' загварт хуулах уу? Тэдгээрийн одоогийн размер солигдоно.')){ e.target.checked=false; return; } D().sameSizes=on; markDirty('sameSizes'); if(on){ ['sizes','sizeSel','extraSizes'].forEach(function(k){ markDirty(k); }); } rerender(); return; }
     if(e.target.hasAttribute&&e.target.hasAttribute('data-dtoggle')){ S.dEdit[curSheet().id]=e.target.checked; rerender(); return; }
     var k=e.target.getAttribute&&e.target.getAttribute('data-k');
     if(k==='isNew'){ rerender(); }
@@ -605,6 +626,8 @@ function bindEditor(){
       case 'custSubmit': custSubmit(); break;
       case 'custLink': copy(custUrl(curSheet())); break;
       case 'facLink': copy(factoryUrl(curSheet())); break;
+      case 'facAll': copy(orderFactoryUrl(S.sheets)); break;
+      case 'facAllOpen': window.open(orderFactoryUrl(S.sheets),'_blank'); break;
       case 'facOpen': window.open(factoryUrl(curSheet()),'_blank'); break;
       case 'preview': previewFactory(); break;
       case 'send': sendFactory(); break;
@@ -621,9 +644,21 @@ function addSheet(){
   $('#as1',m).onclick=function(){ go(''); }; $('#as2',m).onclick=function(){ go(curSheet().id); };
 }
 function sendFactory(){
-  var d=D(); var miss=[]; if(!d.modelCode) miss.push('загварын код'); if(!total(d)) miss.push('размерийн тоо');
-  if(!confirm((miss.length?'Анхаар: '+miss.join(', ')+' бөглөгдөөгүй байна.\n\n':'')+'Энэ хуудсыг үйлдвэрт илгээх үү? Үйлдвэрийн линк үүснэ.')) return;
-  flushSave().then(function(){ var c=catFind(D().modelCode,D().modelCat); return (c&&c.design)?null:saveDesign(true); }).then(function(){ return api('apiSendToFactory',auth(),curSheet().id); }).then(function(o){ var s=curSheet(); s.sent=o.sent; s.factoryToken=o.factoryToken; syncList(s); render(); copy(factoryUrl(s)); }).catch(function(e){ alert(e.message); });
+  var uns=S.sheets.filter(function(x){ return !x.sent; }), cur=curSheet();
+  var miss=[]; uns.forEach(function(x){ var m=[]; if(!x.data.modelCode) m.push('код'); if(!total(x.data)) m.push('размерийн тоо'); if(m.length) miss.push((x.data.modelCode||'Загвар')+': '+m.join(', ')); });
+  var m=modal('<div class="mh"><h2>Үйлдвэрт илгээх</h2><span class="sp"></span><button class="btn ghost" data-close>✕</button></div>'+
+    (miss.length?'<div class="rev" style="margin:0 0 12px">Анхаар, бөглөгдөөгүй: '+esc(miss.join('; '))+'</div>':'')+
+    '<div class="grid"><button class="btn pri" id="sAll" style="justify-content:flex-start;padding:14px;white-space:normal;text-align:left"><span><b>Бүх загварыг нэг линкээр илгээх ('+uns.length+')</b><br><span style="font-weight:400;font-size:13px">Нэг линкэнд бүх загвар дараалан / табаар харагдана, нэг PDF болж хэвлэгдэнэ.</span></span></button>'+
+    (cur.sent?'':'<button class="btn" id="sOne" style="justify-content:flex-start;padding:14px;white-space:normal;text-align:left"><span><b>Зөвхөн энэ загварыг тусад нь ('+esc(cur.data.modelCode||'Загвар')+')</b><br><span style="font-weight:400;font-size:13px">Энэ загварт тусдаа линк үүснэ.</span></span></button>')+'</div>','sm');
+  function go(list,single){
+    closeModal(); setStatus('Үйлдвэрт илгээж байна…');
+    flushSave().then(function(){ var c=catFind(D().modelCode,D().modelCat); return (c&&c.design)?null:saveDesign(true); })
+      .then(function(){ return list.reduce(function(p,s){ return p.then(function(){ return api('apiSendToFactory',auth(),s.id).then(function(o){ s.sent=o.sent; s.factoryToken=o.factoryToken; syncList(s); }); }); },Promise.resolve()); })
+      .then(function(){ render(); copy(single?factoryUrl(list[0]):orderFactoryUrl(S.sheets)); setStatus('Үйлдвэрт илгээгдлээ ✓'); })
+      .catch(function(e){ alert(e.message); });
+  }
+  $('#sAll',m).onclick=function(){ go(uns,false); };
+  var so=$('#sOne',m); if(so) so.onclick=function(){ go([cur],true); };
 }
 function saveRevision(){
   var n=$('#revNote').value.trim();
@@ -650,7 +685,7 @@ function previewFactory(){
 }
 
 /* ================= Каталогоос сонгох ================= */
-var DESIGN_KEYS=['ironTpl','draw','orts','tpl','aux'];
+var DESIGN_KEYS=['ironTpl','sewTpl','pocketTpl','orts','tpl','aux'];
 function designOf(d){ var o={}; DESIGN_KEYS.forEach(function(k){ if(d[k]!=null&&d[k]!==''&&!(Array.isArray(d[k])&&!d[k].length)){ var v=JSON.parse(JSON.stringify(d[k])); if(Array.isArray(v)&&ORDER_COLS[k]) v=v.map(function(r){ ORDER_COLS[k].forEach(function(c){ delete r[c]; }); return r; }); o[k]=v; } }); return o; }
 function applyDesign(d,c,force){
   if(!c||!c.design) return;
@@ -778,18 +813,18 @@ function catEdit(item){
       '<div class="mt"><label class="f">Үлгэр</label><textarea data-f="ulger">'+esc(x.ulger)+'</textarea></div>'+
       '<div class="grid g2 mt"><div><label class="f">Үнэлгээ</label><input data-f="unelgee" value="'+esc(x.unelgee)+'"></div><div><label class="f">Загвар</label><input data-f="zagvar" value="'+esc(x.zagvar)+'"></div></div>'+
       '<h3 class="mt2" style="border-top:1px solid var(--line);padding-top:16px">Загварын дизайн (захиалга дээр автоматаар бөглөгдөнө)</h3>'+
-      '<div class="grid g2"><div><label class="f">Индүүний шаблон</label><input data-df="ironTpl" value="'+esc(x.design.ironTpl||'')+'"></div><div><label class="f">Зурах / CLO</label><select data-df="draw"><option value="">—</option>'+['Зурах','CLO'].map(function(o){ return '<option'+(x.design.draw===o?' selected':'')+'>'+o+'</option>'; }).join('')+'</select></div></div>'+
+      '<div class="grid g3"><div><label class="f">Индүүний шаблон (код)</label><input data-df="ironTpl" value="'+esc(x.design.ironTpl||'')+'"></div><div><label class="f">Оёдлын шаблон (код)</label><input data-df="sewTpl" value="'+esc(x.design.sewTpl||'')+'"></div><div><label class="f">Халаасны шаблон (код)</label><input data-df="pocketTpl" value="'+esc(x.design.pocketTpl||'')+'"></div></div>'+
       '<p class="muted" style="font-size:12.5px;margin:0 0 6px">Өнгө, кодыг захиалга бүр дээр гараар бөглөнө.</p>'+
       [['orts','Эсгүүр — нэгж орц'],['tpl','Эсгүүрт ашиглах шаблон, шаблоны код'],['aux','Туслах материал']].map(function(g){
         var CC=DCOLS[g[0]].filter(function(c){ return !isOrderCol(g[0],c[0]); });
         return '<div class="mt"><label class="f" style="font-size:13.5px;color:var(--ink)">'+g[1]+'</label><div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr>'+CC.map(function(c){ return '<th>'+c[1]+'</th>'; }).join('')+'<th></th></tr>'+
-          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+CC.map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
+          (x.design[g[0]]||[]).map(function(r,i){ return '<tr>'+CC.map(function(c){ var pth=g[0]+'.'+i+'.'+c[0]; return '<td'+(c[2]?' style="width:'+c[2]+'"':'')+'>'+(c[3]==='chk'?'<input type="checkbox" data-df="'+pth+'" '+(r[c[0]]?'checked':'')+' style="width:20px;height:20px">':c[3]==='ta'?'<textarea data-df="'+pth+'" style="min-height:38px">'+esc(r[c[0]]||'')+'</textarea>':'<input data-df="'+pth+'" value="'+esc(r[c[0]]||'')+'">')+'</td>'; }).join('')+'<td style="width:40px"><button class="btn ghost sm" data-drm="'+g[0]+'" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
           '</table></div><button class="btn sm mt" data-dadd="'+g[0]+'">+ Мөр нэмэх</button></div>';
       }).join('')+
       '<div class="row mt">'+(item?'<button class="btn danger" id="cdel">Устгах</button>':'')+'<span class="sp"></span><span class="status" id="cst"></span><button class="btn pri" id="csave">Хадгалах</button></div>';
   }
   draw();
-  m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; var df=e.target.getAttribute('data-df'); if(df) setPath(x.design,df,e.target.value); });
+  m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; var df=e.target.getAttribute('data-df'); if(df) setPath(x.design,df,e.target.type==='checkbox'?e.target.checked:e.target.value); });
   m.addEventListener('change',function(e){
     var side=e.target.getAttribute('data-upside'); if(!side) return;
     $('#cst',m).textContent='Зураг байршуулж байна…';
@@ -843,7 +878,7 @@ function factoryView(s,c,standalone){
   var d=s.data, imgs=factoryImages(s,c), signs=Object.assign({},DEFAULT_SIGNS,d.signs||{});
   var h='<div class="fv"><div class="fv-screen">';
   h+='<div class="fv-head"><div><div style="font-size:12px;opacity:.65;letter-spacing:.06em;text-transform:uppercase">Захиалгын хуудас № '+esc(s.orderNo)+'</div><div class="big">'+esc(d.modelCode||'—')+' · '+esc(d.modelDesc||(c&&c.desc)||'')+'</div>'+
-    '<div class="meta"><div><b>Захиалагч</b>'+esc(d.customer||'—')+'</div><div><b>Хүлээж авсан</b>'+esc(d.recvDate||'—')+'</div><div><b>Хүлээлгэн өгөх</b>'+esc(d.dueDate||'—')+'</div><div><b>Индүүний шаблон</b>'+esc(d.ironTpl||'—')+'</div><div><b>Нийт</b>'+total(d)+' ш</div></div></div></div>';
+    '<div class="meta"><div><b>Захиалагч</b>'+esc(d.customer||'—')+'</div><div><b>Хүлээж авсан</b>'+esc(d.recvDate||'—')+'</div><div><b>Хүлээлгэн өгөх</b>'+esc(d.dueDate||'—')+'</div><div><b>Индүүний шаблон</b>'+esc(d.ironTpl||'—')+'</div><div><b>Оёдлын шаблон</b>'+esc(d.sewTpl||'—')+'</div><div><b>Халаасны шаблон</b>'+esc(d.pocketTpl||'—')+'</div><div><b>Нийт</b>'+total(d)+' ш</div></div></div></div>';
   (d.revisions||[]).slice().reverse().slice(0,5).forEach(function(r,i){ h+='<div class="rev"><b>'+(i===0?'Сүүлийн өөрчлөлт':'Өөрчлөлт')+' · '+esc(r.at)+(r.who?' · '+esc(r.who):'')+'</b><br>'+esc(r.note)+'</div>'; });
   if(standalone) h+='<div class="fv-actions"><button class="btn" id="fvPrint">Хэвлэх</button></div>';
   if(imgs.length) h+='<div class="fv-gal">'+imgs.map(function(x,i){ return '<figure><img src="'+img(x.id,1600)+'" data-fi="'+i+'" loading="'+(i<2?'eager':'lazy')+'"><figcaption>'+esc(x.cap)+'</figcaption></figure>'; }).join('')+'</div>';
@@ -854,10 +889,10 @@ function factoryView(s,c,standalone){
   h+='<div class="fv-card"><h3>Размер, тоо</h3>'+(szRows.length?'<table class="t sizebig"><tr><th>Размер</th><th style="text-align:right">Тоо</th><th>Хүйс</th></tr>'+szRows.map(function(r){ return '<tr><td><b>'+esc(r[0])+'</b></td><td class="q">'+r[1]+'ш</td><td>'+r[2]+'</td></tr>'; }).join('')+'<tr><td><b>Нийт: '+total(d)+'ш</b></td><td class="q" colspan="2" style="text-align:left;font-weight:400">ЭР '+gTotal(d,'M')+' · ЭМ '+gTotal(d,'F')+'</td></tr></table>':'<p class="muted">—</p>')+'</div>';
   // Өнгө + ерөнхий
   var col=d.colors||{};
-  h+='<div class="fv-card"><h3>Өнгө ба загвар</h3><dl class="kv"><dt>Их бие</dt><dd>'+esc(col.body||'—')+'</dd><dt>Оруулга</dt><dd>'+esc(col.insert||'—')+'</dd><dt>Дотор</dt><dd>'+esc(col.lining||'—')+'</dd><dt>Зурах / CLO</dt><dd>'+esc(d.draw||'—')+'</dd>'+(c&&c.ulger?'<dt>Үлгэр</dt><dd style="font-weight:400">'+esc(c.ulger)+'</dd>':'')+'</dl></div>';
+  h+='<div class="fv-card"><h3>Өнгө ба загвар</h3><dl class="kv"><dt>Их бие</dt><dd>'+esc(col.body||'—')+'</dd><dt>Оруулга</dt><dd>'+esc(col.insert||'—')+'</dd><dt>Дотор</dt><dd>'+esc(col.lining||'—')+'</dd>'+(c&&c.ulger?'<dt>Үлгэр</dt><dd style="font-weight:400">'+esc(c.ulger)+'</dd>':'')+'</dl></div>';
   // Орц
   if((d.orts||[]).length) h+='<div class="fv-card full"><h3>Эсгүүр — материал, нэгж орц, өнгө</h3><table class="t"><tr><th>Орц</th><th>Өнгө-Өргөн</th><th>Код</th></tr>'+d.orts.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.color)+'</td><td><b>'+esc(r.code)+'</b></td></tr>'; }).join('')+'</table></div>';
-  if((d.tpl||[]).length) h+='<div class="fv-card full"><h3>Эсгүүрт ашиглах шаблон</h3><table class="t">'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td style="width:30%"><b>'+esc(r.code)+'</b></td></tr>'; }).join('')+'</table></div>';
+  if((d.tpl||[]).length) h+='<div class="fv-card full"><h3>Эсгүүрт ашиглах шаблон</h3><table class="t"><tr><th>Шаблон</th><th>Код</th><th>Зурах/CLO</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td style="width:30%"><b>'+esc(r.code)+'</b></td><td style="width:14%">'+(r.clo?'✓':'')+'</td></tr>'; }).join('')+'</table></div>';
   if((d.aux||[]).length) h+='<div class="fv-card full"><h3>Туслах материал</h3><table class="t"><tr><th>Материал</th><th>Өнгө</th><th>Код</th></tr>'+d.aux.map(function(r){
     var ln=(r.lengths||'').split(/[,;\n]+/).map(function(x){return x.trim();}).filter(String);
     return '<tr><td>'+esc(r.name)+(ln.length?'<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'+ln.map(function(x){ return '<span class="badge">'+esc(x)+'</span>'; }).join('')+'</div>':'')+'</td><td>'+esc(r.color)+'</td><td><b>'+esc(r.code)+'</b></td></tr>'; }).join('')+'</table></div>';
@@ -879,14 +914,14 @@ function printSheet(s,c,imgs){
   var h='<div class="print-only ps"><div class="page">';
   h+='<table class="hd"><tr><th style="width:22%">Захиалгын хуудас №</th><td>'+esc(s.orderNo)+'</td><th style="width:22%">Захиалагч байгууллага:</th><td>'+esc(d.customer)+'</td></tr>'+
     '<tr><th>Хүлээж авсан огноо:</th><td>'+esc(d.recvDate)+'</td><th>Хүлээлгэн өгөх огноо:</th><td>'+esc(d.dueDate)+'</td></tr>'+
-    '<tr><th>Загварын дугаар</th><td>'+esc(d.modelCode)+'</td><th>Индүүний шаблон</th><td>'+esc(d.ironTpl)+'</td></tr>'+
+    '<tr><th>Загварын дугаар</th><td>'+esc(d.modelCode)+'</td><th>Индүүний / Оёдлын / Халаасны шаблон</th><td>'+esc([d.ironTpl,d.sewTpl,d.pocketTpl].map(function(x){return x||'—';}).join(' / '))+'</td></tr>'+
     '<tr><th>Загварын тайлбар</th><td colspan="3">'+esc(d.modelDesc||(c&&c.desc)||'')+'</td></tr>'+
     '<tr><th>Өнгө</th><td colspan="3">Их бие: '+esc(col.body||'—')+' · Оруулга: '+esc(col.insert||'—')+' · Дотор: '+esc(col.lining||'—')+'</td></tr></table>';
   var lrows=POS4.filter(function(p){ var x=lg[p]; return x&&(x.type||x.color||x.size||x.note); });
   if(lrows.length) h+='<table><tr><th>Лого байрлал</th><th>Төрөл</th><th>Өнгө</th><th>Хэмжээ/см</th><th>Тайлбар</th></tr>'+lrows.map(function(p){ var x=lg[p]; return '<tr><td>'+p+'</td><td>'+esc(x.type||'')+'</td><td>'+esc(x.color||'')+'</td><td>'+esc(x.size||'')+'</td><td>'+esc(x.note||'')+'</td></tr>'; }).join('')+'</table>';
   h+='<table><tr><td style="width:42%"><div class="imgs">'+imgs.slice(0,4).map(function(x){ return '<img src="'+img(x.id,1000)+'">'; }).join('')+'</div></td><td>';
-  h+='<table><tr><th>Зурах/CLO: '+esc(d.draw||'')+' · Орц</th><th>Өнгө-Өргөн</th><th>Код</th></tr>'+(d.orts||[]).map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.code)+'</td></tr>'; }).join('')+'</table>';
-  if((d.tpl||[]).length) h+='<table><tr><th>Эсгүүр-ашиглах шаблон</th><th>Код</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code)+'</td></tr>'; }).join('')+'</table>';
+  h+='<table><tr><th>Орц</th><th>Өнгө-Өргөн</th><th>Код</th></tr>'+(d.orts||[]).map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.code)+'</td></tr>'; }).join('')+'</table>';
+  if((d.tpl||[]).length) h+='<table><tr><th>Эсгүүр-ашиглах шаблон</th><th>Код</th><th>Зурах/CLO</th></tr>'+d.tpl.map(function(r){ return '<tr><td>'+esc(r.name)+'</td><td>'+esc(r.code)+'</td><td>'+(r.clo?'✓':'')+'</td></tr>'; }).join('')+'</table>';
   if((d.aux||[]).length) h+='<table><tr><th>Туслах материал</th><th>Өнгө</th><th>Код</th></tr>'+d.aux.map(function(r){ return '<tr><td>'+esc(r.name)+(r.lengths?'<br><small>'+esc(r.lengths)+'</small>':'')+'</td><td>'+esc(r.color)+'</td><td>'+esc(r.code)+'</td></tr>'; }).join('')+'</table>';
   var szRows=sizeRows(d);
 

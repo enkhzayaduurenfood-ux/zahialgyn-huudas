@@ -26,7 +26,8 @@ var LOG_HEADERS = ['Огноо', 'Хэн', 'Захиалгын №', 'Хууда
 // Захиалагч засаж болох талбарууд (ZH хэсэг)
 var CUSTOMER_KEYS = ['custSubmitted', 'modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
   'khav', 'soilt', 'logo', 'tsats', 'halaas', 'dotor', 'people', 'custNote', 'zhSigns'];
-var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'logo'];
+var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'logo', 'sameSizes'];
+var SIZE_KEYS = ['sizes', 'sizeSel', 'extraSizes'];
 var STEPS = ['Захиалга хүлээн авах', 'Захиалгын мэдээлэл нягтлах', 'Захиалгын хуудас бөглөх', 'Захиалга баталгаажуулах', 'Эх загвар, скиз баталгаажуулах'];
 
 /* ------------------------------------------------------------------ */
@@ -142,6 +143,13 @@ function bootData_(p) {
   if (p.v === 'f' && p.t) {
     var r = findBy_('factory', p.t);
     if (!r) return { mode: 'error', error: 'Захиалгын хуудас олдсонгүй.' };
+    if (p.a === '1') {
+      var all = sheetsByOrder_(r.obj.orderNo).filter(function (o) { return o.sent; });
+      var cats = allCatalog_();
+      var catOf = function (o) { return cats.filter(function (x) { return x.code === o.data.modelCode && (!o.data.modelCat || x.cat === o.data.modelCat); })[0] || cats.filter(function (x) { return x.code === o.data.modelCode; })[0] || null; };
+      all.forEach(function (o) { o.custToken = ''; });
+      return { mode: 'factory', base: base, sheets: all, catalogs: all.map(catOf), title: 'Захиалга ' + r.obj.orderNo };
+    }
     return { mode: 'factory', base: base, sheet: r.obj, catalog: catalogFor_(r.obj.data.modelCode, r.obj.data.modelCat), title: r.obj.orderNo + ' — ' + (r.obj.data.modelCode || '') };
   }
   if (p.v === 'c' && p.t) {
@@ -207,7 +215,7 @@ function apiAddSheet(auth, orderNo, copyFromId, init) {
     if (src) { data = JSON.parse(JSON.stringify(src.data)); data.revisions = []; data.photos = data.photos || []; }
   }
   if (init) {
-    var allowed = isAdmin_(auth) ? Object.keys(init) : ['modelCode', 'modelCat', 'modelDesc', 'ironTpl', 'draw', 'orts', 'tpl', 'aux'];
+    var allowed = isAdmin_(auth) ? Object.keys(init) : ['modelCode', 'modelCat', 'modelDesc', 'ironTpl', 'sewTpl', 'pocketTpl', 'draw', 'orts', 'tpl', 'aux'];
     allowed.forEach(function (k) { if (k in init) data[k] = init[k]; });
   }
   var lock = LockService.getScriptLock(); lock.waitLock(20000);
@@ -241,6 +249,7 @@ function apiSave(auth, id, patch, revNote) {
     // Захиалгын түвшний талбарыг бусад хуудсанд ч шинэчилнэ
     var orderPatch = {};
     ORDER_LEVEL_KEYS.forEach(function (k) { if (k in patch) orderPatch[k] = patch[k]; });
+    if (d.sameSizes) SIZE_KEYS.forEach(function (k) { if (k in patch || 'sameSizes' in patch) orderPatch[k] = d[k]; });
     if (Object.keys(orderPatch).length) {
       sheetsByOrder_(r.obj.orderNo, true).forEach(function (o) {
         if (o.obj.id === id) return;
