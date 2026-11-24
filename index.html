@@ -443,7 +443,7 @@ function editorHtml(){
   if(admin) h+='<div class="stepsel" style="margin:-8px 0 14px">Одоогийн алхам: <select data-k="step">'+STEPS.map(function(t,i){ return '<option value="'+(i+1)+'"'+((d.step||1)==i+1?' selected':'')+'>'+(i+1)+'. '+t+(i===4?' (шинэ загвар үед)':'')+'</option>'; }).join('')+'</select></div>';
   SECN=0;
   h+='<fieldset style="border:0;padding:0;margin:0" '+(lock?'disabled':'')+'>';
-  if(S.etab==='a') h+=secGeneral(d)+secModels()+secLogo(d)+mtabsHtml()+secModelInfo(d)+secColors(d)+secPeople(d);
+  if(S.etab==='a') h+=secGeneral(d)+secModels()+(isCustom(d)?mtabsHtml()+secCustomInfo(d)+secLogo(d):secLogo(d)+mtabsHtml()+secModelInfo(d))+secColors(d)+secPeople(d);
   else if(S.etab==='b') h+=mtabsHtml()+secSizes(d)+secOpt('khav',d)+secOpt('soilt',d)+secOpt('tsats',d)+secOpt('halaas',d)+secOpt('dotor',d)+secSalesNote(d);
   else { applyDesign(d,catFind(d.modelCode,d.modelCat),false); h+=mtabsHtml()+secModel(d)+secOrts(d)+secTpl(d)+secAux(d)+secMat(d)+secSigns(d); h+='<div class="row mt"><button class="btn danger" id="delSheet">Энэ загварын хуудсыг устгах</button></div>'; }
   var idx=tabs.map(function(t){return t[0];}).indexOf(S.etab);
@@ -504,14 +504,22 @@ function modelCard(d){
     '<div class="sp"><div class="cond" style="font-size:18px;font-weight:700">'+esc(d.modelCode||'Загвар сонгоогүй')+'</div><div class="muted" style="font-size:13px">'+esc(c?c.desc:'Code каталогоос сонгох, эсвэл каталог номноос кодоо хараад доор бичнэ')+'</div>'+(c&&c.ulger?'<div style="font-size:12.5px;margin-top:2px"><b>Үлгэр:</b> '+esc(c.ulger)+'</div>':'')+'</div>'+
     '<div class="row" style="gap:6px"><button class="btn" id="pickModel">'+(d.modelCode?'Загвар солих':'Code-оос сонгох')+'</button></div></div>';
 }
+function isCustom(d){ return !d.modelCode; }
+function mName(x,i){ return x.data.modelCode||('Шинэ загвар '+(i+1)); }
+function secCustomInfo(d){
+  return sec(0,'Шинэ загвар — тайлбар ба зураг','<div class="rev" style="margin:0 0 12px">Энэ бол каталогт байхгүй, <b>өөрийн хүссэн цоо шинэ загвар</b>. Загвараа дэлгэрэнгүй тайлбарлаад, зураг эсвэл скизээ хавсаргана уу. Дараа нь доорх Лого хэсгийг бөглөнө.</div>'+
+    field('1. Загварын тайлбар (ямар хувцас, хэлбэр, материал, онцлог…)','<textarea data-k="modelDesc" style="min-height:110px" placeholder="Жишээ нь: Өвлийн дулаан цээж, малгайтай, 2 энгэрийн халаастай, ар талдаа цацруулагчтай…">'+esc(d.modelDesc||'')+'</textarea>')+
+    '<div class="mt"><label class="f">2. Загварын зураг, скиз, жишээ зураг (хэдийг ч хавсаргаж болно)</label>'+thumbsHtml(d.photos,'photos',true,'Загварын зураг')+'</div>'+
+    '<p class="muted" style="font-size:12.5px;margin:12px 0 0">Каталогт ижил төстэй загвар байвал дээрх <b>⌨ Код оруулах</b>-аар сонгож болно.</p>');
+}
 function sheetPic(x){ var c=catFind(x.data.modelCode,x.data.modelCat); return (c&&(c.front[0]||c.back[0]))||(x.data.photos||[])[0]||''; }
 function secModels(){
-  var list='<div class="mlist">'+S.sheets.map(function(x,i){ var p=sheetPic(x); return '<button class="mchip '+(i===S.cur?'on':'')+'" data-mt="'+i+'">'+(p?'<img src="'+img(p,120)+'">':'<span class="ph"></span>')+'<span><b>'+esc(x.data.modelCode||('Загвар '+(i+1)))+'</b>'+(x.sent?' ✓':'')+'<br><span class="muted" style="font-size:12px">'+total(x.data)+' ш</span></span></button>'; }).join('')+'</div>';
-  return sec(0,'Захиалах загварууд','<p class="muted" style="margin:0 0 10px;font-size:13px">Code-оос нэг эсвэл хэд хэдэн загвар зэрэг сонгоно. Загвар бүр доор тусдаа таб болж, мэдээллийг нь тус тусад нь бөглөнө.</p>'+list+
-    '<div class="row mt" style="gap:6px"><button class="btn pri" id="codeEntry">⌨ Код оруулах</button><button class="btn" id="pickModels">+ Code-оос сонгох</button><a class="btn" href="'+FLIPBOOK+'" target="_blank" rel="noopener">Каталог ном үзэх ↗</a><button class="btn" id="addSheet">+ Хоосон загвар</button></div>');
+  var list='<div class="mlist">'+S.sheets.map(function(x,i){ var p=sheetPic(x); return '<button class="mchip '+(i===S.cur?'on':'')+'" data-mt="'+i+'">'+(p?'<img src="'+img(p,120)+'">':'<span class="ph"></span>')+'<span><b>'+esc(mName(x,i))+'</b>'+(x.sent?' ✓':'')+'<br><span class="muted" style="font-size:12px">'+total(x.data)+' ш</span></span></button>'; }).join('')+'</div>';
+  return sec(0,'Захиалах загварууд','<p class="muted" style="margin:0 0 10px;font-size:13px">Каталогоос кодоор нь сонгох, эсвэл каталогт байхгүй <b>өөрийн шинэ загварыг</b> зураг, тайлбараар нь нэмнэ. Загвар бүр доор тусдаа таб болно.</p>'+list+
+    '<div class="row mt" style="gap:6px"><button class="btn pri" id="codeEntry">⌨ Код оруулах</button><button class="btn" id="pickModels">+ Code-оос сонгох</button><a class="btn" href="'+FLIPBOOK+'" target="_blank" rel="noopener">Каталог ном үзэх ↗</a><button class="btn" id="addCustom" title="Каталогт байхгүй, өөрийн зураг, тайлбараар захиалах">+ Шинэ загвар (өөрийн зургаар)</button></div>');
 }
 function mtabsHtml(){
-  return '<div class="mtabs">'+S.sheets.map(function(x,i){ return '<button data-mt="'+i+'" class="'+(i===S.cur?'on':'')+'">'+esc(x.data.modelCode||('Загвар '+(i+1)))+(x.sent?' ✓':'')+'</button>'; }).join('')+'</div>';
+  return '<div class="mtabs">'+S.sheets.map(function(x,i){ return '<button data-mt="'+i+'" class="'+(i===S.cur?'on':'')+'">'+esc(mName(x,i))+(x.sent?' ✓':'')+'</button>'; }).join('')+'</div>';
 }
 function secModelInfo(d){
   return sec(0,'Загвар: '+esc(d.modelCode||'сонгоогүй'),modelCard(d)+'<div class="grid g2 mt">'+field('Загварын код (каталог номноос харж бичиж болно)',inp('modelCode',d.modelCode))+'<div></div></div>'+
@@ -618,6 +626,7 @@ function bindEditor(){
     switch(t.id){
       case 'back': leaveEditor(function(){ render(); }); break;
       case 'addSheet': addSheet(); break;
+      case 'addCustom': addCustom(); break;
       case 'pickModel': pickModel('replace'); break;
       case 'pickModels': pickModel('add'); break;
       case 'codeEntry': codeEntry(); break;
@@ -638,6 +647,11 @@ function bindEditor(){
   };
 }
 function rerender(){ var y=window.scrollY; var open=$$('details.sec').map(function(d){ return d.open; }); render(); $$('details.sec').forEach(function(d,i){ if(open[i]!=null) d.open=open[i]; }); window.scrollTo(0,y); }
+function addCustom(){
+  var cur=curSheet(), empty=!cur.data.modelCode&&!cur.data.modelDesc&&!(cur.data.photos||[]).length;
+  if(empty){ S.etab='a'; rerender(); toast('Энэ таб дээр шинэ загварын тайлбар, зургаа оруулна уу'); return; }
+  flushSave().then(function(){ return api('apiAddSheet',auth(),S.order,''); }).then(function(o){ S.sheets.push(o); S.cur=S.sheets.length-1; S.etab='a'; if(!isCust()) syncList(o); render(); toast('Шинэ загвар нэмэгдлээ — тайлбар, зургаа оруулна уу'); }).catch(function(e){ alert(e.message); });
+}
 function addSheet(){
   var m=modal('<div class="mh"><h2>Загвар нэмэх</h2><span class="sp"></span><button class="btn ghost" data-close>✕</button></div><p class="muted">Захиалга № '+esc(S.order)+' дээр шинэ загварын хуудас нэмнэ. Ижил дугаартай байна.</p><div class="row"><button class="btn pri" id="as1">Хоосон хуудас</button><button class="btn" id="as2">Одоогийн хуудаснаас хуулах</button></div>','sm');
   function go(copyId){ closeModal(); flushSave().then(function(){ return api('apiAddSheet',auth(),S.order,copyId||''); }).then(function(o){ S.sheets.push(o); S.cur=S.sheets.length-1; if(!isCust()) syncList(o); render(); toast('Загварын хуудас нэмэгдлээ'); }).catch(function(e){ alert(e.message); }); }
