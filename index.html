@@ -509,8 +509,7 @@ function mName(x,i){ return x.data.modelCode||('Шинэ загвар '+(i+1)); 
 function secCustomInfo(d){
   return sec(0,'Шинэ загвар — тайлбар ба зураг','<div class="rev" style="margin:0 0 12px">Энэ бол каталогт байхгүй, <b>өөрийн хүссэн цоо шинэ загвар</b>. Загвараа дэлгэрэнгүй тайлбарлаад, зураг эсвэл скизээ хавсаргана уу. Дараа нь доорх Лого хэсгийг бөглөнө.</div>'+
     field('1. Загварын тайлбар (ямар хувцас, хэлбэр, материал, онцлог…)','<textarea data-k="modelDesc" style="min-height:110px" placeholder="Жишээ нь: Өвлийн дулаан цээж, малгайтай, 2 энгэрийн халаастай, ар талдаа цацруулагчтай…">'+esc(d.modelDesc||'')+'</textarea>')+
-    '<div class="mt"><label class="f">2. Загварын зураг, скиз, жишээ зураг (хэдийг ч хавсаргаж болно)</label>'+thumbsHtml(d.photos,'photos',true,'Загварын зураг')+'</div>'+
-    '<p class="muted" style="font-size:12.5px;margin:12px 0 0">Каталогт ижил төстэй загвар байвал дээрх <b>⌨ Код оруулах</b>-аар сонгож болно.</p>');
+    '<div class="mt"><label class="f">2. Загварын зураг, скиз, жишээ зураг (хэдийг ч хавсаргаж болно)</label>'+thumbsHtml(d.photos,'photos',true,'Загварын зураг')+'</div>');
 }
 function sheetPic(x){ var c=catFind(x.data.modelCode,x.data.modelCat); return (c&&(c.front[0]||c.back[0]))||(x.data.photos||[])[0]||''; }
 function secModels(){
@@ -565,7 +564,7 @@ function saveBar(){
   return '<div class="savebar no-print '+(sentAdmin?'sent':'')+'"><div class="wrap">'+
     (sentAdmin?'<input id="revNote" placeholder="Юу өөрчилсөн бэ? (заавал)" style="max-width:420px"><button class="btn pri" id="saveRev">Засвар хадгалах</button>':'')+
     '<span class="status" id="st">'+esc(S.status||'Өөрчлөлт автоматаар хадгалагдана')+'</span><span class="sp"></span>'+
-    (isCust()?'<button class="btn ok" id="custSubmit"><span id="custSubmitBtn">Илгээх</span></button>':'')+
+    (isCust()?'<button class="btn" id="custSave">Хадгалах</button><button class="btn ok" id="custSubmit"><span id="custSubmitBtn">Илгээх</span></button>':'')+
     (!isCust()?'<button class="btn" id="preview">Үйлдвэрийн харагдац</button>':'')+'</div></div>';
 }
 function setStatus(t,err){ S.status=t; var e=$('#st'); if(e){ e.textContent=t; e.className='status'+(err?' err':''); } }
@@ -633,6 +632,7 @@ function bindEditor(){
       case 'saveDesign': saveDesign(false); break;
       case 'loadDesign': if(confirm('Энэ захиалгад хийсэн засварыг арилгаж, Code-ийн хувилбарыг буцааж оруулах уу?')){ applyDesign(D(),catFind(D().modelCode,D().modelCat),true); rerender(); } break;
       case 'custSubmit': custSubmit(); break;
+      case 'custSave': S.pending.customer=true; flushSave().then(function(){ if(!/чадсангүй/.test(S.status)) toast('Хадгалагдлаа. Дараа дахин орж үргэлжлүүлэн бөглөж болно.'); }); break;
       case 'custLink': copy(custUrl(curSheet())); break;
       case 'facLink': copy(factoryUrl(curSheet())); break;
       case 'facAll': copy(orderFactoryUrl(S.sheets)); break;
@@ -781,7 +781,7 @@ function addModels(items){
   p.then(function(){ setStatus('Хадгалагдсан ✓'); rerender(); toast(items.length+' загвар нэмэгдлээ'); }).catch(function(e){ alert(e.message); rerender(); });
 }
 function custSubmit(){
-  if(!confirm('Мэдээллээ илгээх үү?')) return;
+  if(!confirm('Мэдээллээ илгээх үү?\n\nИлгээсний дараа захиалгаа өөрчлөх боломжгүй болно. Дуусаагүй бол "Хадгалах" дарж, дараа үргэлжлүүлээрэй.')) return;
   var b=$('#custSubmitBtn'); if(b){ b.disabled=true; b.textContent='Илгээж байна…'; }
   var now=new Date().toISOString().slice(0,16).replace('T',' ');
   flushSave().then(function(){

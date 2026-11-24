@@ -209,6 +209,7 @@ function apiAddSheet(auth, orderNo, copyFromId, init) {
   var first = rows[0];
   var isCust = auth && auth.t && auth.t === first.custToken;
   if (!isAdmin_(auth) && !isCust) throw new Error('Эрх байхгүй');
+  if (!isAdmin_(auth) && rows.some(function (o) { return o.data.custSubmitted; })) throw new Error('Захиалгыг илгээсэн тул өөрчлөх боломжгүй.');
   var data = { customer: first.data.customer, recvDate: first.data.recvDate, dueDate: first.data.dueDate, logo: first.data.logo || {}, step: first.data.step || 1 };
   if (copyFromId) {
     var src = rows.filter(function (r) { return r.id === copyFromId; })[0];
@@ -237,6 +238,7 @@ function apiSave(auth, id, patch, revNote) {
     if (!admin && !cust) throw new Error('Эрх байхгүй');
     if (!admin) {
       if (r.obj.sent) throw new Error('Үйлдвэрт илгээгдсэн тул засах боломжгүй. Борлуулалтын менежерт хандана уу.');
+      if (r.obj.data.custSubmitted) throw new Error('Захиалгыг илгээсэн тул өөрчлөх боломжгүй. Борлуулалтын менежерт хандана уу.');
       Object.keys(patch).forEach(function (k) { if (CUSTOMER_KEYS.indexOf(k) < 0) delete patch[k]; });
     }
     var d = r.obj.data;
