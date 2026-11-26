@@ -24,9 +24,10 @@ var CATALOG_HEADERS = ['Ангилал', 'Код', 'Тодорхойлолт', '
 var LOG_HEADERS = ['Огноо', 'Хэн', 'Захиалгын №', 'Хуудас ID', 'Үйлдэл', 'Тэмдэглэл'];
 
 // Захиалагч засаж болох талбарууд (ZH хэсэг)
-var CUSTOMER_KEYS = ['custSubmitted', 'modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
+var CUSTOMER_KEYS = ['sizeSel', 'sameSizes', 'sameLogo', 'noLogo', 'custSubmitted', 'modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
   'khav', 'soilt', 'logo', 'tsats', 'halaas', 'dotor', 'people', 'custNote', 'zhSigns'];
-var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'logo', 'sameSizes'];
+var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'sameSizes', 'sameLogo'];
+var LOGO_KEYS = ['logo', 'noLogo'];
 var SIZE_KEYS = ['sizes', 'sizeSel', 'extraSizes'];
 var STEPS = ['Захиалга хүлээн авах', 'Захиалгын мэдээлэл нягтлах', 'Захиалгын хуудас бөглөх', 'Захиалга баталгаажуулах', 'Эх загвар, скиз баталгаажуулах'];
 
@@ -210,7 +211,7 @@ function apiAddSheet(auth, orderNo, copyFromId, init) {
   var isCust = auth && auth.t && auth.t === first.custToken;
   if (!isAdmin_(auth) && !isCust) throw new Error('Эрх байхгүй');
   if (!isAdmin_(auth) && rows.some(function (o) { return o.data.custSubmitted; })) throw new Error('Захиалгыг илгээсэн тул өөрчлөх боломжгүй.');
-  var data = { customer: first.data.customer, recvDate: first.data.recvDate, dueDate: first.data.dueDate, logo: first.data.logo || {}, step: first.data.step || 1 };
+  var data = { customer: first.data.customer, recvDate: first.data.recvDate, dueDate: first.data.dueDate, logo: first.data.sameLogo ? (first.data.logo || {}) : {}, noLogo: first.data.sameLogo ? !!first.data.noLogo : false, sameLogo: !!first.data.sameLogo, sameSizes: !!first.data.sameSizes, step: first.data.step || 1 };
   if (copyFromId) {
     var src = rows.filter(function (r) { return r.id === copyFromId; })[0];
     if (src) { data = JSON.parse(JSON.stringify(src.data)); data.revisions = []; data.photos = data.photos || []; }
@@ -251,6 +252,7 @@ function apiSave(auth, id, patch, revNote) {
     // Захиалгын түвшний талбарыг бусад хуудсанд ч шинэчилнэ
     var orderPatch = {};
     ORDER_LEVEL_KEYS.forEach(function (k) { if (k in patch) orderPatch[k] = patch[k]; });
+    if (d.sameLogo) LOGO_KEYS.forEach(function (k) { if (k in patch || 'sameLogo' in patch) orderPatch[k] = d[k]; });
     if (d.sameSizes) SIZE_KEYS.forEach(function (k) { if (k in patch || 'sameSizes' in patch) orderPatch[k] = d[k]; });
     if (Object.keys(orderPatch).length) {
       sheetsByOrder_(r.obj.orderNo, true).forEach(function (o) {
