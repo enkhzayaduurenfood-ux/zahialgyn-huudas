@@ -119,7 +119,7 @@ function importCatalog() {
 var API_FNS = { apiList: apiList, apiGetSheet: apiGetSheet, apiGetOrder: apiGetOrder, apiCreateOrder: apiCreateOrder,
   apiAddSheet: apiAddSheet, apiSave: apiSave, apiSendToFactory: apiSendToFactory, apiDeleteSheet: apiDeleteSheet,
   apiSetSeq: apiSetSeq, apiUpload: apiUpload, apiCatalog: apiCatalog, apiSaveCatalog: apiSaveCatalog,
-  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign, apiDeleteOrder: apiDeleteOrder, apiSaveTech: apiSaveTech, apiCopyTech: apiCopyTech };
+  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign, apiDeleteOrder: apiDeleteOrder, apiSaveTech: apiSaveTech, apiCopyTech: apiCopyTech, apiSetCats: apiSetCats };
 
 function doPost(e) {
   var out;
@@ -596,4 +596,12 @@ function apiCopyTech(auth, tech, parts, keys) {
     log_(auth.who, '', '', 'Технологийн карт хуулсан', n + ' загварт [' + parts.join(', ') + ']');
     return allCatalog_();
   } finally { lock.releaseLock(); }
+}
+
+/** Каталогийн нэмэлт ангиллууд (загваргүй ч байж болно) */
+function apiSetCats(auth, list) {
+  requireAdmin_(auth);
+  setSetting_('cats', JSON.stringify((list || []).map(String).filter(String)));
+  log_(auth.who, '', '', 'Ангилал шинэчилсэн', (list || []).join(', '));
+  return settings_();
 }

@@ -1046,7 +1046,24 @@ function custSubmit(){
   }).then(function(){ S.submitted=true; render(); window.scrollTo(0,0); })
     .catch(function(e){ alert('Илгээж чадсангүй: '+e.message); if(b){ b.disabled=false; b.textContent='Илгээх'; } });
 }
-function cats(){ var o=[]; S.catalog.forEach(function(x){ if(o.indexOf(x.cat)<0) o.push(x.cat); }); return o; }
+function extraCats(){ try{ var a=JSON.parse(S.settings.cats||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function cats(){ var o=[]; S.catalog.forEach(function(x){ if(x.cat&&o.indexOf(x.cat)<0) o.push(x.cat); }); extraCats().forEach(function(c){ if(o.indexOf(c)<0) o.push(c); }); return o; }
+function catManager(){
+  var m=modal('');
+  function draw(){
+    var cnt={}; S.catalog.forEach(function(x){ cnt[x.cat]=(cnt[x.cat]||0)+1; });
+    m.querySelector('.box').innerHTML='<div class="mh"><h2>Ангилал</h2><span class="sp"></span><button class="btn ghost" data-close>✕</button></div>'+
+      '<div class="row" style="gap:6px"><input id="ncat" placeholder="Шинэ ангиллын нэр (жишээ нь: Өмд, Комбинезон)"><button class="btn pri" id="acat">Нэмэх</button></div>'+
+      '<div class="mt" style="border:1px solid var(--line);border-radius:8px">'+cats().map(function(c){ var n=cnt[c]||0; return '<div class="row" style="padding:8px 12px;border-bottom:1px solid var(--line)"><b>'+esc(c)+'</b><span class="muted" style="font-size:13px">'+n+' загвар</span><span class="sp"></span>'+(n?'':'<button class="btn ghost sm" data-dcat="'+esc(c)+'" title="Хоосон ангиллыг устгах">✕</button>')+'</div>'; }).join('')+'</div>'+
+      '<p class="muted" style="font-size:12.5px;margin:8px 0 0">Загвартай ангиллыг устгах боломжгүй. Загвар нэмэх/засах үед "Ангилал" сонголтоос шинэ ангиллаа сонгоно.</p>';
+    var i=$('#ncat',m); i.focus(); i.onkeydown=function(e){ if(e.key==='Enter') add(); };
+    $('#acat',m).onclick=add;
+  }
+  function save(list){ return api('apiSetCats',auth(),list).then(function(st){ S.settings=st; render(); draw(); }).catch(function(e){ alert(e.message); }); }
+  function add(){ var v=$('#ncat',m).value.trim(); if(!v) return; if(cats().some(function(c){ return c.toLowerCase()===v.toLowerCase(); })){ alert('"'+v+'" ангилал аль хэдийн байна'); return; } save(extraCats().concat([v])).then(function(){ toast('"'+v+'" ангилал нэмэгдлээ'); }); }
+  m.addEventListener('click',function(e){ var d=e.target.getAttribute&&e.target.getAttribute('data-dcat'); if(d){ if(!confirm('"'+d+'" ангиллыг устгах уу?')) return; save(extraCats().filter(function(c){ return c!==d; })); } });
+  draw();
+}
 function filterCat(st){ var q=(st.q||'').toLowerCase(); return S.catalog.map(function(x,i){ x._i=i; return x; }).filter(function(x){ return (!st.cat||x.cat===st.cat)&&(!q||(x.code+' '+x.desc+' '+x.ulger).toLowerCase().indexOf(q)>=0); }); }
 function ccardHtml(x,sel){
   var ims=(x.front[0]?'<img loading="lazy" src="'+img(x.front[0],400)+'">':'')+(x.back[0]?'<img loading="lazy" src="'+img(x.back[0],400)+'">':'');
@@ -1056,7 +1073,7 @@ function ccardHtml(x,sel){
 /* ================= Каталог (засах) ================= */
 function catalogHtml(){
   var list=filterCat(S.cfilter);
-  return '<div class="toolbar"><h1>Code каталог</h1><span class="muted">'+S.catalog.length+' загвар</span><span class="sp"></span><button class="btn pri" id="newCat">+ Шинэ загвар</button></div>'+
+  return '<div class="toolbar"><h1>Code каталог</h1><span class="muted">'+S.catalog.length+' загвар</span><span class="sp"></span><button class="btn" id="catMgr">+ Ангилал нэмэх</button><button class="btn pri" id="newCat">+ Шинэ загвар</button></div>'+
     '<div class="toolbar"><input type="search" id="cq" placeholder="Код, тодорхойлолт, үлгэрээр хайх" value="'+esc(S.cfilter.q)+'"></div>'+
     '<div class="chips" style="margin-bottom:14px">'+[''].concat(cats()).map(function(c){ return '<button class="chip '+(S.cfilter.cat===c?'on':'')+'" data-cc="'+esc(c)+'">'+(c||'Бүгд')+'</button>'; }).join('')+'</div>'+
     '<div class="cgrid">'+(list.map(function(x){ return ccardHtml(x); }).join('')||'<p class="muted">Олдсонгүй</p>')+'</div>';
@@ -1066,6 +1083,7 @@ function bindCatalog(){
   $$('[data-cc]').forEach(function(b){ b.onclick=function(){ S.cfilter.cat=b.getAttribute('data-cc'); render(); }; });
   $$('[data-ck]').forEach(function(c){ c.onclick=function(){ catEdit(S.catalog[Number(c.getAttribute('data-ck'))]); }; });
   $('#newCat').onclick=function(){ catEdit(null); };
+  $('#catMgr').onclick=catManager;
 }
 function catEdit(item){
   var x=item?JSON.parse(JSON.stringify(item)):{cat:S.cfilter.cat||'',code:'',desc:'',clo:'',ulger:'',unelgee:'',zagvar:'',front:[],back:[]};
@@ -1081,7 +1099,7 @@ function catEdit(item){
   function draw(){
     m.querySelector('.box').innerHTML='<div class="mh"><h2>'+(item?esc(item.code):'Шинэ загвар')+'</h2><span class="sp"></span><button class="btn ghost" data-close>✕</button></div>'+
       '<div class="grid g2">'+imgsBlock('front','Энгэр')+imgsBlock('back','Ар')+'</div>'+
-      '<div class="grid g3 mt"><div><label class="f">Ангилал</label><input data-f="cat" list="catlist" value="'+esc(x.cat)+'"><datalist id="catlist">'+cats().map(function(c){return '<option value="'+esc(c)+'">';}).join('')+'</datalist></div><div><label class="f">Код</label><input data-f="code" value="'+esc(x.code)+'"></div><div><label class="f">CLO</label><input data-f="clo" value="'+esc(x.clo)+'"></div></div>'+
+      '<div class="grid g3 mt"><div><label class="f">Ангилал</label><select data-f="cat" data-catsel><option value="">— сонгох —</option>'+cats().concat(x.cat&&cats().indexOf(x.cat)<0?[x.cat]:[]).map(function(c){ return '<option'+(c===x.cat?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'<option value="__new">+ Шинэ ангилал…</option></select></div><div><label class="f">Код</label><input data-f="code" value="'+esc(x.code)+'"></div><div><label class="f">CLO</label><input data-f="clo" value="'+esc(x.clo)+'"></div></div>'+
       '<div class="mt"><label class="f">Тодорхойлолт</label><input data-f="desc" value="'+esc(x.desc)+'"></div>'+
       '<div class="mt"><label class="f">Үлгэр</label><textarea data-f="ulger">'+esc(x.ulger)+'</textarea></div>'+
       '<div class="grid g2 mt"><div><label class="f">Үнэлгээ</label><input data-f="unelgee" value="'+esc(x.unelgee)+'"></div><div><label class="f">Загвар</label><input data-f="zagvar" value="'+esc(x.zagvar)+'"></div></div>'+
@@ -1101,6 +1119,7 @@ function catEdit(item){
   draw();
   m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; var df=e.target.getAttribute('data-df'); if(df) setPath(x.design,df,e.target.type==='checkbox'?e.target.checked:e.target.value); var tf=e.target.getAttribute('data-tf'); if(tf) setPath(x.tech,tf,e.target.value); });
   m.addEventListener('change',function(e){
+    if(e.target.hasAttribute('data-catsel')){ if(e.target.value==='__new'){ var nv=(prompt('Шинэ ангиллын нэр:')||'').trim(); if(!nv){ e.target.value=x.cat||''; return; } x.cat=nv; if(cats().indexOf(nv)<0) api('apiSetCats',auth(),extraCats().concat([nv])).then(function(st){ S.settings=st; }); draw(); } else x.cat=e.target.value; return; }
     if(e.target.hasAttribute('data-tup')){ var ti=Number(e.target.getAttribute('data-tup')); $('#cst',m).textContent='Зураг байршуулж байна…'; uploadFiles([e.target.files[0]],(x.code||'catalog')+'_tech','catalog').then(function(ids){ x.tech.pages[ti].id=ids[0]; draw(); }).catch(function(err){ $('#cst',m).textContent=err.message; }); return; }
     var side=e.target.getAttribute('data-upside'); if(!side) return;
     $('#cst',m).textContent='Зураг байршуулж байна…';
