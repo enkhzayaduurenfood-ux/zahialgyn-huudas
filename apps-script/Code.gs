@@ -20,13 +20,13 @@ var SHEET_SETTINGS = 'Тохиргоо';
 var ORDER_HEADERS = ['ID', 'Захиалгын №', 'Дараалал', 'Он', 'Захиалагч', 'Хүлээж авсан', 'Хүлээлгэн өгөх',
   'Загварын код', 'Загварын тайлбар', 'Алхам', 'Төлөв', 'Нийт тоо', 'Үүсгэсэн', 'Шинэчилсэн', 'Илгээсэн',
   'Захиалагчийн токен', 'Үйлдвэрийн токен', 'Устгасан', 'Өгөгдөл (JSON)'];
-var CATALOG_HEADERS = ['Ангилал', 'Код', 'Тодорхойлолт', 'CLO', 'Үлгэр', 'Үнэлгээ', 'Загвар', 'Энгэр зураг', 'Ар зураг', 'Шинэчилсэн', 'Энгэр зургийн холбоос', 'Ар зургийн холбоос', 'Дизайны мэдээлэл (JSON)'];
+var CATALOG_HEADERS = ['Ангилал', 'Код', 'Тодорхойлолт', 'CLO', 'Үлгэр', 'Үнэлгээ', 'Загвар', 'Энгэр зураг', 'Ар зураг', 'Шинэчилсэн', 'Энгэр зургийн холбоос', 'Ар зургийн холбоос', 'Дизайны мэдээлэл (JSON)', 'Технологийн карт (JSON)'];
 var LOG_HEADERS = ['Огноо', 'Хэн', 'Захиалгын №', 'Хуудас ID', 'Үйлдэл', 'Тэмдэглэл'];
 
 // Захиалагч засаж болох талбарууд (ZH хэсэг)
 var CUSTOMER_KEYS = ['sizeSel', 'sameSizes', 'sameLogo', 'noLogo', 'custSubmitted', 'modelCode', 'modelCat', 'salesNote', 'customer', 'recvDate', 'dueDate', 'modelDesc', 'photos', 'colors', 'sizes', 'extraSizes',
   'khav', 'soilt', 'logo', 'tsats', 'halaas', 'dotor', 'people', 'custNote', 'zhSigns'];
-var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'sameSizes', 'sameLogo'];
+var ORDER_LEVEL_KEYS = ['customer', 'recvDate', 'dueDate', 'sameSizes', 'sameLogo', 'status', 'statusAt'];
 var LOGO_KEYS = ['logo', 'noLogo'];
 var SIZE_KEYS = ['sizes', 'sizeSel', 'extraSizes'];
 var STEPS = ['Захиалга хүлээн авах', 'Захиалгын мэдээлэл нягтлах', 'Захиалгын хуудас бөглөх', 'Захиалга баталгаажуулах', 'Эх загвар, скиз баталгаажуулах'];
@@ -105,7 +105,7 @@ function importCatalog() {
   var rows = items.map(function (x) {
     var fr = (x.front || []).map(function (n) { return done[n]; }).filter(String).join(',');
     var bk = (x.back || []).map(function (n) { return done[n]; }).filter(String).join(',');
-    return [x.cat, x.code, x.desc || '', x['CLO'] || '', x['Үлгэр'] || '', x['Үнэлгээ'] || '', x['Загвар'] || '', fr, bk, now, links_(fr), links_(bk), ''];
+    return [x.cat, x.code, x.desc || '', x['CLO'] || '', x['Үлгэр'] || '', x['Үнэлгээ'] || '', x['Загвар'] || '', fr, bk, now, links_(fr), links_(bk), '', ''];
   });
   if (rows.length) sh.getRange(2, 1, rows.length, CATALOG_HEADERS.length).setValues(rows);
   props.deleteProperty('IMPORT_DONE');
@@ -119,7 +119,7 @@ function importCatalog() {
 var API_FNS = { apiList: apiList, apiGetSheet: apiGetSheet, apiGetOrder: apiGetOrder, apiCreateOrder: apiCreateOrder,
   apiAddSheet: apiAddSheet, apiSave: apiSave, apiSendToFactory: apiSendToFactory, apiDeleteSheet: apiDeleteSheet,
   apiSetSeq: apiSetSeq, apiUpload: apiUpload, apiCatalog: apiCatalog, apiSaveCatalog: apiSaveCatalog,
-  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign, apiDeleteOrder: apiDeleteOrder };
+  apiDeleteCatalog: apiDeleteCatalog, apiLog: apiLog, apiSaveDesign: apiSaveDesign, apiDeleteOrder: apiDeleteOrder, apiSaveTech: apiSaveTech, apiCopyTech: apiCopyTech };
 
 function doPost(e) {
   var out;
@@ -156,7 +156,7 @@ function bootData_(p) {
   if (p.v === 'c' && p.t) {
     var list = sheetsByCustToken_(p.t);
     if (!list.length) return { mode: 'error', error: 'Захиалга олдсонгүй.' };
-    return { mode: 'customer', base: base, token: p.t, sheets: list, catalog: allCatalog_(), title: 'Захиалга ' + list[0].orderNo };
+    return { mode: 'customer', base: base, token: p.t, sheets: list, catalog: allCatalog_().map(function (x) { x.tech = null; return x; }), title: 'Захиалга ' + list[0].orderNo };
   }
   if (p.k && p.k === adminKey_()) {
     return { mode: 'admin', base: base, key: p.k, list: listSheets_(), catalog: allCatalog_(), settings: settings_(), steps: STEPS, title: 'Захиалгын хуудас — удирдлага' };
@@ -244,7 +244,8 @@ function apiSave(auth, id, patch, revNote) {
     }
     var d = r.obj.data;
     Object.keys(patch).forEach(function (k) { d[k] = patch[k]; });
-    if (r.obj.sent && admin) {
+    var onlyStatus = Object.keys(patch).every(function (k) { return k === 'status' || k === 'statusAt'; });
+    if (r.obj.sent && admin && !onlyStatus) {
       d.revisions = d.revisions || [];
       d.revisions.push({ at: nowStr_(), who: auth.who || '', note: revNote || '' });
     }
@@ -353,8 +354,10 @@ function apiSaveCatalog(auth, item, origKey) {
     var fr = (item.front || []).join(','), bk = (item.back || []).join(',');
     var design = item.design;
     if (design === undefined && row > 0) design = vals[row - 1][12] ? JSON.parse(vals[row - 1][12]) : null;
+    var tech = item.tech;
+    if (tech === undefined && row > 0) tech = vals[row - 1][13] ? JSON.parse(vals[row - 1][13]) : null;
     var rec = [item.cat, item.code, item.desc || '', item.clo || '', item.ulger || '', item.unelgee || '', item.zagvar || '',
-      fr, bk, new Date(), links_(fr), links_(bk), design ? JSON.stringify(design) : ''];
+      fr, bk, new Date(), links_(fr), links_(bk), design ? JSON.stringify(design) : '', tech ? JSON.stringify(tech) : ''];
     if (row < 0) sh.appendRow(rec); else sh.getRange(row, 1, 1, rec.length).setValues([rec]);
     log_(auth.who, '', '', row < 0 ? 'Каталогт нэмсэн' : 'Каталог зассан', item.cat + ' ' + item.code);
     return allCatalog_();
@@ -440,7 +443,7 @@ function fmt_(x) { if (!x) return ''; if (x instanceof Date) return Utilities.fo
 function objToRow_(o) {
   var d = o.data || {};
   return [o.id, o.orderNo, o.seq, o.year, d.customer || '', d.recvDate || '', d.dueDate || '', d.modelCode || '', d.modelDesc || '',
-    STEPS[(d.step || 1) - 1] || '', o.sent ? 'Үйлдвэрт илгээсэн' : 'Боловсруулж байна', sizeTotal_(d), o.created, o.updated,
+    STEPS[(d.step || 1) - 1] || '', d.status === 'done' ? 'Дууссан' : d.status === 'cancel' ? 'Цуцлагдсан' : o.sent ? 'Үйлдвэрт илгээсэн' : 'Боловсруулж байна', sizeTotal_(d), o.created, o.updated,
     o.sent || '', o.custToken, o.factoryToken || '', o.deleted || '', JSON.stringify(d)];
 }
 
@@ -493,7 +496,7 @@ function listSheets_() {
     try { d = JSON.parse(v[18] || '{}'); } catch (e) { }
     var thumb = (d.photos && d.photos[0]) || '';
     return { id: v[0], orderNo: v[1], seq: Number(v[2]), year: Number(v[3]), customer: d.customer || '', recvDate: d.recvDate || '', dueDate: d.dueDate || '', modelCode: d.modelCode || '', modelCat: d.modelCat || '',
-      modelDesc: v[8], step: d.step || 1, sent: v[14], total: Number(v[11]) || 0, updated: v[13], custToken: v[15], factoryToken: v[16], thumb: thumb, custSubmitted: d.custSubmitted || '' };
+      modelDesc: v[8], step: d.step || 1, sent: v[14], total: Number(v[11]) || 0, updated: v[13], custToken: v[15], factoryToken: v[16], thumb: thumb, custSubmitted: d.custSubmitted || '', status: d.status || '', statusAt: d.statusAt || '' };
   }).reverse();
 }
 
@@ -503,6 +506,7 @@ function links_(ids) {
 
 /** Каталогийн хуудсанд зургийн холбоос, дизайны баганыг нэмэх (нэг удаа) */
 function upgradeCatalog_(sh) {
+  if (!sh.getRange(1, 14).getValue()) sh.getRange(1, 14).setValue(CATALOG_HEADERS[13]).setFontWeight('bold').setBackground('#e8eef7');
   if (sh.getRange(1, 11).getValue()) return;
   sh.getRange(1, 1, 1, CATALOG_HEADERS.length).setValues([CATALOG_HEADERS]).setFontWeight('bold').setBackground('#e8eef7');
   var n = sh.getLastRow();
@@ -519,8 +523,10 @@ function allCatalog_() {
   return sh.getRange(2, 1, n - 1, CATALOG_HEADERS.length).getDisplayValues().map(function (v) {
     var design = null;
     try { design = v[12] ? JSON.parse(v[12]) : null; } catch (e) { }
+    var tech = null;
+    try { tech = v[13] ? JSON.parse(v[13]) : null; } catch (e) { }
     return { cat: v[0], code: v[1], desc: v[2], clo: v[3], ulger: v[4], unelgee: v[5], zagvar: v[6],
-      front: v[7] ? v[7].split(',') : [], back: v[8] ? v[8].split(',') : [], design: design };
+      front: v[7] ? v[7].split(',') : [], back: v[8] ? v[8].split(',') : [], design: design, tech: tech };
   }).filter(function (x) { return x.code; });
 }
 
@@ -549,4 +555,45 @@ function catalogFor_(code, cat) {
   var all = allCatalog_();
   return all.filter(function (x) { return x.code === code && (!cat || x.cat === cat); })[0] ||
     all.filter(function (x) { return x.code === code; })[0] || null;
+}
+
+/** Технологийн картыг каталогийн загварт хадгалах */
+function apiSaveTech(auth, cat, code, tech) {
+  requireAdmin_(auth);
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var sh = ss_().getSheetByName(SHEET_CATALOG);
+    upgradeCatalog_(sh);
+    var vals = sh.getDataRange().getValues();
+    for (var i = 1; i < vals.length; i++) {
+      if (vals[i][1] === code && (!cat || vals[i][0] === cat)) {
+        sh.getRange(i + 1, 14).setValue(tech ? JSON.stringify(tech) : '');
+        sh.getRange(i + 1, 10).setValue(new Date());
+        log_(auth.who, '', '', 'Технологийн карт хадгалсан', vals[i][0] + ' ' + code);
+        return allCatalog_();
+      }
+    }
+    throw new Error('Каталогт ' + code + ' код олдсонгүй. Эхлээд каталогт нэмнэ үү.');
+  } finally { lock.releaseLock(); }
+}
+
+/** Технологийн картын сонгосон хэсгийг (pages, seq, ready) олон загварт хуулах. keys: ['cat|code', ...] */
+function apiCopyTech(auth, tech, parts, keys) {
+  requireAdmin_(auth);
+  var lock = LockService.getScriptLock(); lock.waitLock(30000);
+  try {
+    var sh = ss_().getSheetByName(SHEET_CATALOG);
+    upgradeCatalog_(sh);
+    var vals = sh.getDataRange().getValues(), n = 0;
+    for (var i = 1; i < vals.length; i++) {
+      if (keys.indexOf(vals[i][0] + '|' + vals[i][1]) < 0) continue;
+      var cur = {};
+      try { cur = vals[i][13] ? JSON.parse(vals[i][13]) : {}; } catch (e) { cur = {}; }
+      parts.forEach(function (p) { cur[p] = tech[p] ? JSON.parse(JSON.stringify(tech[p])) : null; });
+      sh.getRange(i + 1, 14).setValue(JSON.stringify(cur));
+      n++;
+    }
+    log_(auth.who, '', '', 'Технологийн карт хуулсан', n + ' загварт [' + parts.join(', ') + ']');
+    return allCatalog_();
+  } finally { lock.releaseLock(); }
 }
