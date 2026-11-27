@@ -211,6 +211,12 @@ table.t input,table.t select{min-height:34px;padding:5px 8px}
 .tview img{width:100%;height:auto;display:block;cursor:zoom-in}
 @media (max-width:700px){.tview{grid-template-columns:1fr}}
 .ocancel{opacity:.55}
+.tgrp{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:10px;background:#fbfbfa}
+.tgrp .tgname{font-weight:700;font-size:15px}
+.tops{margin-top:6px}
+.top{display:flex;gap:4px;align-items:center;margin:4px 0}
+.top .tno{width:30px;text-align:right;color:var(--muted);font-size:13px;flex:none}
+.top input{flex:1}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .kpi{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--muted);font-size:13px}
 .kpi b{display:block;font-size:26px;color:var(--ink);font-family:"Roboto Condensed"}
@@ -632,11 +638,15 @@ function techParts(t,A,P,d){
            :'<label class="addimg tim">+ Зураг (скан, фото)<input type="file" accept="image/*" data-tup="'+i+'"></label>')+
       (i>=TECH_PAGES.length?'<button class="btn ghost sm" data-tact="rmPage" data-i="'+i+'">Хуудас хасах</button>':'')+'</div>';
   }).join('')+'</div><button class="btn sm mt" data-tact="addPage">+ Хуудас нэмэх</button>';
+  var grps=techGroups(t.seq), no=0;
   var sq='<datalist id="techgrp">'+TECH_GROUPS.map(function(g){ return '<option value="'+esc(g)+'">'; }).join('')+'</datalist>'+
-    '<div style="overflow-x:auto"><table class="t" style="min-width:560px"><tr><th style="width:44px">№</th><th style="width:24%">Бүлэг</th><th>Ажилбар</th><th style="width:108px"></th></tr>'+
-    t.seq.map(function(r,i){ return '<tr><td>'+(i+1)+'</td><td><input '+A+'="'+P+'seq.'+i+'.g" list="techgrp" value="'+esc(r.g||'')+'"></td><td>'+iv('seq.'+i+'.n',r.n)+'</td><td style="white-space:nowrap"><button class="btn ghost sm" data-tact="up" data-i="'+i+'" title="Дээш">↑</button><button class="btn ghost sm" data-tact="down" data-i="'+i+'" title="Доош">↓</button><button class="btn ghost sm" data-tact="rmSeq" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
-    '</table></div><div class="row mt" style="gap:6px"><button class="btn sm" data-tact="addSeq">+ Мөр нэмэх</button><button class="btn sm" data-tact="bulkSeq">Бөөнөөр оруулах</button>'+(t.seq.length?'<button class="btn ghost sm" data-tact="clrSeq">Бүгдийг арилгах</button>':'')+'</div>'+
-    (TECH_UI.bulk==='seq'?'<div class="panel mt" style="box-shadow:none;padding:12px"><p class="muted" style="margin:0 0 6px;font-size:13px">Мөр бүрт нэг ажилбар. Excel-ээс "Бүлэг ⇥ Ажилбар" гэсэн 2 баганаар хуулж буулгаж болно (№ багана байвал өөрөө алгасна).</p><textarea id="tbulk" style="min-height:160px"></textarea><div class="row mt"><span class="sp"></span><button class="btn ghost sm" data-tact="bulkOff">Болих</button><button class="btn pri sm" data-tact="bulkSeqGo">Нэмэх</button></div></div>':'');
+    grps.map(function(G){
+      return '<div class="tgrp"><div class="row" style="gap:6px;flex-wrap:nowrap"><input class="tgname" data-tgrp="'+G.a+'-'+G.b+'" list="techgrp" placeholder="Бүлгийн нэр (жишээ нь Энгэр бэлтгэл)" value="'+esc(G.g)+'"><button class="btn ghost sm" data-tact="rmGrp" data-i="'+G.a+'" data-j="'+G.b+'" title="Бүлгийг устгах">✕</button></div>'+
+        '<div class="tops">'+G.idx.map(function(i){ var r=t.seq[i]; if(r.n) no++; return '<div class="top"><span class="tno">'+(r.n?no:'')+'</span>'+iv('seq.'+i+'.n',r.n)+'<button class="btn ghost sm" data-tact="up" data-i="'+i+'" title="Дээш">↑</button><button class="btn ghost sm" data-tact="down" data-i="'+i+'" title="Доош">↓</button><button class="btn ghost sm" data-tact="rmSeq" data-i="'+i+'" title="Устгах">✕</button></div>'; }).join('')+
+        '<button class="btn ghost sm" data-tact="addOp" data-i="'+G.b+'" style="margin-left:34px">+ Ажилбар нэмэх</button></div></div>';
+    }).join('')+
+    '<div class="row mt" style="gap:6px"><button class="btn sm" data-tact="addGrp">+ Бүлэг нэмэх</button><button class="btn sm" data-tact="bulkSeq">Бөөнөөр оруулах</button>'+(t.seq.length?'<button class="btn ghost sm" data-tact="clrSeq">Бүгдийг арилгах</button>':'')+'</div>'+
+    (TECH_UI.bulk==='seq'?'<div class="panel mt" style="box-shadow:none;padding:12px"><p class="muted" style="margin:0 0 6px;font-size:13px">Бүлгийн нэрийг <b>":"</b>-ээр төгсгөж бичээд, доор нь ажилбарууд мөр мөрөөр. Жишээ нь:<br>Энгэр бэлтгэл:<br>Доод халаасны байрлал зурах<br>Хавтас оёх<br>Ар бэлтгэл:<br>Арын кокетка оёх</p><textarea id="tbulk" style="min-height:180px"></textarea><div class="row mt"><span class="sp"></span><button class="btn ghost sm" data-tact="bulkOff">Болих</button><button class="btn pri sm" data-tact="bulkSeqGo">Нэмэх</button></div></div>':'');
   var cols=t.ready.cols;
   var rd='<div style="overflow-x:auto"><table class="t" style="min-width:640px"><tr><th style="width:96px">Размер</th>'+cols.map(function(c,j){ return '<th><div class="row" style="gap:2px;flex-wrap:nowrap">'+iv('ready.cols.'+j,c,'font-weight:600;min-width:70px')+'<button class="btn ghost sm" data-tact="rmCol" data-i="'+j+'" title="Багана хасах">✕</button></div></th>'; }).join('')+(d?'<th style="width:60px">Тоо</th>':'')+'<th style="width:40px"></th></tr>'+
     t.ready.rows.map(function(r,i){ var q=d?sizeQty(d,r.s):0; return '<tr'+(q?' class="has"':'')+'><td>'+iv('ready.rows.'+i+'.s',r.s,'font-weight:600')+'</td>'+cols.map(function(c,j){ return '<td>'+iv('ready.rows.'+i+'.v.'+j,r.v[j])+'</td>'; }).join('')+(d?'<td style="text-align:right"><b>'+(q||'')+'</b></td>':'')+'<td><button class="btn ghost sm" data-tact="rmRow" data-i="'+i+'">✕</button></td></tr>'; }).join('')+
@@ -646,6 +656,9 @@ function techParts(t,A,P,d){
     (TECH_UI.bulk==='ready'?'<div class="panel mt" style="box-shadow:none;padding:12px"><p class="muted" style="margin:0 0 6px;font-size:13px">Excel-ээс хүснэгтээ хуулж буулгана. Мөр бүр: Размер ⇥ хэмжээнүүд. Эхний мөр нь баганын нэр байвал толгой болгоно. Одоогийн мөрүүд солигдоно.</p><textarea id="tbulk" style="min-height:160px"></textarea><div class="row mt"><span class="sp"></span><button class="btn ghost sm" data-tact="bulkOff">Болих</button><button class="btn pri sm" data-tact="bulkReadyGo">Оруулах</button></div></div>':'');
   return [['Технологийн карт — зураг (хуудас тус бүр)',pg],['Оёдлын дараалал',sq],['Бэлэн хэмжээ',rd]];
 }
+function techGroups(seq){ var out=[]; seq.forEach(function(r,i){ var G=out[out.length-1]; if(G&&G.g===(r.g||'')){ G.b=i; G.idx.push(i); } else out.push({g:r.g||'',a:i,b:i,idx:[i]}); }); return out; }
+function techRenameGrp(t,rng,val){ var p=rng.split('-'), a=Number(p[0]), b=Number(p[1]); for(var i=a;i<=b;i++) if(t.seq[i]) t.seq[i].g=val; }
+function techFocus(root){ var f=TECH_UI.focus; TECH_UI.focus=''; if(!f) return; setTimeout(function(){ var el=f==='grp'?$$('.tgname',root).pop():$('[data-k="tech.'+f+'"],[data-tf="'+f+'"]',root); if(el) el.focus(); },30); }
 function techAction(t,act,i,done){
   var a;
   switch(act){
@@ -653,10 +666,13 @@ function techAction(t,act,i,done){
     case 'rmPage': t.pages.splice(i,1); break;
     case 'rmImg': t.pages[i].id=''; break;
     case 'addSeq': t.seq.push({g:(t.seq[t.seq.length-1]||{}).g||'',n:''}); break;
-    case 'rmSeq': t.seq.splice(i,1); break;
+    case 'addGrp': t.seq.push({g:'',n:''}); TECH_UI.focus='grp'; break;
+    case 'addOp': t.seq.splice(i+1,0,{g:t.seq[i].g,n:''}); TECH_UI.focus='seq.'+(i+1)+'.n'; break;
+    case 'rmGrp': var j=Number(arguments[4]); var cntN=t.seq.slice(i,j+1).filter(function(r){ return r.n; }).length; if(cntN&&!confirm('"'+(t.seq[i].g||'Нэргүй')+'" бүлгийг '+cntN+' ажилбартай нь устгах уу?')) return; t.seq.splice(i,j-i+1); break;
+    case 'rmSeq': var gg=t.seq[i].g, same=t.seq.filter(function(r){ return r.g===gg; }).length; if(same>1) t.seq.splice(i,1); else t.seq[i].n=''; break;
     case 'clrSeq': if(!confirm('Оёдлын дарааллын бүх мөрийг арилгах уу?')) return; t.seq=[]; break;
-    case 'up': if(i>0){ a=t.seq[i]; t.seq[i]=t.seq[i-1]; t.seq[i-1]=a; } break;
-    case 'down': if(i<t.seq.length-1){ a=t.seq[i]; t.seq[i]=t.seq[i+1]; t.seq[i+1]=a; } break;
+    case 'up': if(i>0&&t.seq[i-1].g===t.seq[i].g){ a=t.seq[i]; t.seq[i]=t.seq[i-1]; t.seq[i-1]=a; } break;
+    case 'down': if(i<t.seq.length-1&&t.seq[i+1].g===t.seq[i].g){ a=t.seq[i]; t.seq[i]=t.seq[i+1]; t.seq[i+1]=a; } break;
     case 'addRow': t.ready.rows.push({s:'',v:[]}); break;
     case 'rmRow': t.ready.rows.splice(i,1); break;
     case 'addCol': t.ready.cols.push('Шинэ хэмжээ'); break;
@@ -666,7 +682,7 @@ function techAction(t,act,i,done){
     case 'bulkOff': TECH_UI.bulk=''; done(true); return;
     case 'bulkSeqGo':
       var lines=($('#tbulk').value||'').split(/\r?\n/), g='';
-      lines.forEach(function(l){ var c=l.split('\t').map(function(x){ return x.trim(); }).filter(function(x){ return x&&!/^\d+$/.test(x); }); if(!c.length) return; if(c.length>=2){ g=c[0]; t.seq.push({g:c[0],n:c.slice(1).join(' ')}); } else t.seq.push({g:(t.seq[t.seq.length-1]||{}).g||g,n:c[0]}); });
+      lines.forEach(function(l){ var tl=l.trim(); if(/[:：]$/.test(tl)&&l.indexOf('\t')<0){ g=tl.replace(/[:：]$/,'').trim(); return; } if(tl&&l.indexOf('\t')<0){ t.seq.push({g:g||(t.seq[t.seq.length-1]||{}).g||'',n:tl.replace(/^\d+[.)]?\s+/,'')}); return; } var c=l.split('\t').map(function(x){ return x.trim(); }).filter(function(x){ return x&&!/^\d+$/.test(x); }); if(!c.length) return; if(c.length>=2){ g=c[0]; t.seq.push({g:c[0],n:c.slice(1).join(' ')}); } else t.seq.push({g:(t.seq[t.seq.length-1]||{}).g||g,n:c[0]}); });
       TECH_UI.bulk=''; break;
     case 'bulkReadyGo':
       var L=($('#tbulk').value||'').split(/\r?\n/).filter(function(l){ return l.trim(); }).map(function(l){ return l.split(l.indexOf('\t')>=0?'\t':/\s{2,}/).map(function(x){ return x.trim(); }); });
@@ -732,7 +748,7 @@ function techView(t,d){
   var h='', pages=(t.pages||[]).filter(function(p){ return p&&p.id; });
   if(pages.length) h+='<div class="fv-card full"><h3>Технологийн карт</h3><div class="tview">'+pages.map(function(p,i){ return '<figure><figcaption>'+esc(p.cap||'')+'</figcaption><img src="'+img(p.id,1800)+'" data-tvi="'+i+'" loading="lazy"></figure>'; }).join('')+'</div></div>';
   var seq=(t.seq||[]).filter(function(r){ return r&&r.n; });
-  if(seq.length){ var last=null; h+='<div class="fv-card full"><h3>Оёдлын дараалал</h3><table class="t"><tr><th style="width:44px">№</th><th style="width:22%">Бүлэг</th><th>Ажилбар</th></tr>'+seq.map(function(r,i){ var g=r.g!==last?r.g:''; last=r.g; return '<tr><td>'+(i+1)+'</td><td><b>'+esc(g||'')+'</b></td><td>'+esc(r.n)+'</td></tr>'; }).join('')+'</table></div>'; }
+  if(seq.length){ var last=null; h+='<div class="fv-card full"><h3>Оёдлын дараалал</h3><table class="t">'+seq.map(function(r,i){ var hd=r.g!==last?'<tr><td colspan="2" style="background:#eef0ee;font-weight:700;font-size:15px">'+esc(r.g||'—')+'</td></tr>':''; last=r.g; return hd+'<tr><td style="width:44px;color:var(--muted)">'+(i+1)+'</td><td>'+esc(r.n)+'</td></tr>'; }).join('')+'</table></div>'; }
   var rows=((t.ready||{}).rows||[]).filter(function(r){ return r.s||(r.v||[]).some(function(x){ return x; }); }), cols=(t.ready||{}).cols||[];
   if(rows.length) h+='<div class="fv-card full"><h3>Бэлэн хэмжээ</h3><div style="overflow-x:auto"><table class="t"><tr><th>Размер</th>'+cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+(d?'<th style="text-align:right">Тоо</th>':'')+'</tr>'+rows.map(function(r){ var q=d?sizeQty(d,r.s):0; return '<tr'+(q?' style="background:var(--ok-soft)"':'')+'><td><b>'+esc(r.s)+'</b></td>'+cols.map(function(c,j){ return '<td>'+esc((r.v||[])[j]||'')+'</td>'; }).join('')+(d?'<td style="text-align:right"><b>'+(q||'')+'</b></td>':'')+'</tr>'; }).join('')+(d?'<tr><td colspan="'+(cols.length+1)+'" style="text-align:right"><b>Нийт</b></td><td style="text-align:right"><b>'+total(d)+'</b></td></tr>':'')+'</table></div></div>';
   return h;
@@ -744,7 +760,7 @@ function techPrint(t,d){
   var seq=(t.seq||[]).filter(function(r){ return r&&r.n; }), rows=((t.ready||{}).rows||[]).filter(function(r){ return r.s||(r.v||[]).some(function(x){ return x; }); }), cols=(t.ready||{}).cols||[];
   if(seq.length||rows.length){
     h+='<div class="tp">';
-    if(seq.length){ var last=null; h+='<table><tr><th style="width:5%">№</th><th style="width:20%">Бүлэг</th><th>Оёдлын дараалал — '+esc(d.modelCode||'')+'</th></tr>'+seq.map(function(r,i){ var g=r.g!==last?r.g:''; last=r.g; return '<tr><td>'+(i+1)+'</td><td>'+esc(g||'')+'</td><td>'+esc(r.n)+'</td></tr>'; }).join('')+'</table>'; }
+    if(seq.length){ var last=null; h+='<table><tr><th colspan="2">Оёдлын дараалал — '+esc(d.modelCode||'')+'</th></tr>'+seq.map(function(r,i){ var hd=r.g!==last?'<tr><th colspan="2" style="background:#eef3e6">'+esc(r.g||'—')+'</th></tr>':''; last=r.g; return hd+'<tr><td style="width:5%">'+(i+1)+'</td><td>'+esc(r.n)+'</td></tr>'; }).join('')+'</table>'; }
     if(rows.length) h+='<table><tr><th colspan="'+(cols.length+2)+'">Бэлэн хэмжээ</th></tr><tr><th>Размер</th>'+cols.map(function(c){ return '<th>'+esc(c)+'</th>'; }).join('')+'<th>Тоо</th></tr>'+rows.map(function(r){ return '<tr><td>'+esc(r.s)+'</td>'+cols.map(function(c,j){ return '<td>'+esc((r.v||[])[j]||'')+'</td>'; }).join('')+'<td>'+(sizeQty(d,r.s)||'')+'</td></tr>'; }).join('')+'<tr><th colspan="'+(cols.length+1)+'">Нийт</th><th>'+total(d)+'</th></tr></table>';
     h+='</div>';
   }
@@ -841,6 +857,7 @@ function flushSave(note){
 function bindEditor(){
   var app=$('#app');
   app.oninput=function(e){
+    var tg=e.target.getAttribute&&e.target.getAttribute('data-tgrp'); if(tg){ techRenameGrp(D().tech=techNorm(D().tech),tg,e.target.value); markDirty('tech'); return; }
     var k=e.target.getAttribute&&e.target.getAttribute('data-k'); if(!k) return;
     var v=e.target.type==='checkbox'?e.target.checked:e.target.value; if(k==='step') v=Number(v);
     setPath(D(),k,v);
@@ -869,7 +886,7 @@ function bindEditor(){
     if(t.hasAttribute('data-add')){ var k=t.getAttribute('data-add'); var arr=(D()[k]||[]).slice(); arr.push(k==='extraSizes'?{gender:'M'}:{}); D()[k]=arr; markDirty(k); rerender(); return; }
     if(t.hasAttribute('data-rm')){ var k2=t.getAttribute('data-rm'); var arr2=(D()[k2]||[]).slice(); arr2.splice(Number(t.getAttribute('data-i')),1); D()[k2]=arr2; markDirty(k2); rerender(); return; }
     if(t.hasAttribute('data-szsel')){ var q=t.getAttribute('data-szsel').split('|'); var cur=getPath(D(),'sizeSel.'+q[0]+'.'+q[1]+'.'+q[2]); setPath(D(),'sizeSel.'+q[0]+'.'+q[1]+'.'+q[2],!cur); t.classList.toggle('on',!cur); markDirty('sizeSel'); return; }
-    if(t.hasAttribute('data-tact')){ var tt=D().tech=techNorm(D().tech); techAction(tt,t.getAttribute('data-tact'),Number(t.getAttribute('data-i')),function(uiOnly){ if(!uiOnly) markDirty('tech'); rerender(); }); return; }
+    if(t.hasAttribute('data-tact')){ var tt=D().tech=techNorm(D().tech); techAction(tt,t.getAttribute('data-tact'),Number(t.getAttribute('data-i')),function(uiOnly){ if(!uiOnly) markDirty('tech'); rerender(); techFocus(); },t.getAttribute('data-j')); return; }
     if(t.hasAttribute('data-tlb')){ var tp=(D().tech||{}).pages||[]; var L=tp.filter(function(p){ return p.id; }); lightbox(L.map(function(p){ return {id:p.id,cap:p.cap}; }),L.indexOf(tp[Number(t.getAttribute('data-tlb'))])); return; }
     if(t.hasAttribute('data-et')){ if(S.etab==='c'&&!isCust()){ var cc=catFind(D().modelCode,D().modelCat); if(cc&&!cc.design&&Object.keys(designOf(D())).length) saveDesign(true); } var net=t.getAttribute('data-et'); maybeAskTech().then(function(){ flushSave(); TECH_UI.bulk=''; S.etab=net; rerender(); window.scrollTo(0,0); }); return; }
     if(t.hasAttribute('data-mt')){ var i=Number(t.getAttribute('data-mt')); maybeAskTech().then(function(){ flushSave(); TECH_UI.bulk=''; S.cur=i; S.status=''; rerender(); }); return; }
@@ -1117,7 +1134,7 @@ function catEdit(item){
       '<div class="row mt">'+(item?'<button class="btn danger" id="cdel">Устгах</button>':'')+'<span class="sp"></span><span class="status" id="cst"></span><button class="btn pri" id="csave">Хадгалах</button></div>';
   }
   draw();
-  m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; var df=e.target.getAttribute('data-df'); if(df) setPath(x.design,df,e.target.type==='checkbox'?e.target.checked:e.target.value); var tf=e.target.getAttribute('data-tf'); if(tf) setPath(x.tech,tf,e.target.value); });
+  m.addEventListener('input',function(e){ var f=e.target.getAttribute('data-f'); if(f) x[f]=e.target.value; var df=e.target.getAttribute('data-df'); if(df) setPath(x.design,df,e.target.type==='checkbox'?e.target.checked:e.target.value); var tf=e.target.getAttribute('data-tf'); if(tf) setPath(x.tech,tf,e.target.value); var tg=e.target.getAttribute('data-tgrp'); if(tg) techRenameGrp(x.tech,tg,e.target.value); });
   m.addEventListener('change',function(e){
     if(e.target.hasAttribute('data-catsel')){ if(e.target.value==='__new'){ var nv=(prompt('Шинэ ангиллын нэр:')||'').trim(); if(!nv){ e.target.value=x.cat||''; return; } x.cat=nv; if(cats().indexOf(nv)<0) api('apiSetCats',auth(),extraCats().concat([nv])).then(function(st){ S.settings=st; }); draw(); } else x.cat=e.target.value; return; }
     if(e.target.hasAttribute('data-tup')){ var ti=Number(e.target.getAttribute('data-tup')); $('#cst',m).textContent='Зураг байршуулж байна…'; uploadFiles([e.target.files[0]],(x.code||'catalog')+'_tech','catalog').then(function(ids){ x.tech.pages[ti].id=ids[0]; draw(); }).catch(function(err){ $('#cst',m).textContent=err.message; }); return; }
@@ -1127,7 +1144,7 @@ function catEdit(item){
   });
   m.addEventListener('click',function(e){
     var t=e.target;
-    var ta=t.closest&&t.closest('[data-tact]'); if(ta){ techAction(x.tech,ta.getAttribute('data-tact'),Number(ta.getAttribute('data-i')),function(){ draw(); }); return; }
+    var ta=t.closest&&t.closest('[data-tact]'); if(ta){ techAction(x.tech,ta.getAttribute('data-tact'),Number(ta.getAttribute('data-i')),function(){ draw(); techFocus(m); },ta.getAttribute('data-j')); return; }
     if(t.hasAttribute('data-tlb')){ var L=x.tech.pages.filter(function(p){ return p.id; }); lightbox(L.map(function(p){ return {id:p.id,cap:p.cap}; }),L.indexOf(x.tech.pages[Number(t.getAttribute('data-tlb'))])); return; }
     if(t.hasAttribute('data-dadd')){ var g=t.getAttribute('data-dadd'); x.design[g]=(x.design[g]||[]).concat([{}]); draw(); return; }
     if(t.hasAttribute('data-drm')){ var g2=t.getAttribute('data-drm'); x.design[g2].splice(Number(t.getAttribute('data-i')),1); draw(); return; }
